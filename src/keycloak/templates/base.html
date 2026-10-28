@@ -1,0 +1,63 @@
+{% load static django_htmx component_tags app_menu %}{% menu_app as menu %}<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <title>{% block title %}CommercialProposal{% endblock %}{% if menu.empresa %} · {{ menu.empresa }}{% endif %}</title>
+    {% include "head.html" %}
+    <script defer type="module">
+      import { resumeSession } from "{% static 'sso/keycloak.js' %}";
+      document.addEventListener("DOMContentLoaded", resumeSession);
+    </script>
+  </head>
+
+  <body class="app-body">
+    <div class="app" id="app">
+      {% include "aside.html" %}
+      <div class="app-veu" data-fechar-menu></div>
+
+      <div class="app-principal">
+        {% include "navbar.html" %}
+        <main id="main" class="app-conteudo">
+          {% block main %}{% endblock %}
+          {% component "noscript" / %}
+        </main>
+        {% include "footer.html" %}
+      </div>
+    </div>
+
+    {% include "toasts.html" %}
+  </body>
+
+  {% django_htmx_script %}
+  {% component_js_dependencies %}
+  <script>
+    (function () {
+      const app = document.getElementById("app");
+      // Menu lateral no celular.
+      document.querySelectorAll("[data-abrir-menu]").forEach((b) => b.addEventListener("click", () => app.classList.add("menu-aberto")));
+      document.querySelectorAll("[data-fechar-menu]").forEach((b) => b.addEventListener("click", () => app.classList.remove("menu-aberto")));
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape") app.classList.remove("menu-aberto"); });
+      // Menu recolhido (só ícones) no computador; a escolha fica salva no navegador.
+      const rotuloRecolher = (b) => {
+        const recolhido = document.documentElement.classList.contains("menu-recolhido");
+        b.setAttribute("aria-label", recolhido ? "Expandir menu" : "Recolher menu");
+        b.title = recolhido ? "Expandir menu" : "Recolher menu";
+      };
+      document.querySelectorAll("[data-recolher-menu]").forEach(rotuloRecolher);
+      document.querySelectorAll("[data-recolher-menu]").forEach((b) => b.addEventListener("click", () => {
+        const recolhido = document.documentElement.classList.toggle("menu-recolhido");
+        rotuloRecolher(b);
+        try { localStorage.setItem("menu-recolhido", recolhido ? "1" : "0"); } catch (e) {
+          // localStorage indisponível: vale só nesta página.
+        }
+      }));
+      // Troca de empresa: envia o formulário ao escolher outra.
+      document.querySelectorAll("[data-trocar-empresa]").forEach((s) => s.addEventListener("change", () => s.form.submit()));
+      // Tema claro/escuro (mesma chave usada antes: "color-theme").
+      document.querySelectorAll("[data-alternar-tema]").forEach((b) => b.addEventListener("click", () => {
+        const escuro = document.documentElement.classList.toggle("dark");
+        try { localStorage.setItem("color-theme", escuro ? "dark" : "light"); } catch (e) {}
+      }));
+    })();
+  </script>
+  {% block extra_js %}{% endblock extra_js %}
+</html>

@@ -1,0 +1,44 @@
+# Deploy do Keycloak no Kubernetes (manifests em k8s/).
+#
+#   cp k8s/secrets.env.example k8s/secrets.env   # preencha as senhas
+#   kubectl apply -k .                            # ou: make k8s-apply
+#
+# Fica na raiz da pasta (e não em k8s/) para poder empacotar realm/*.json:
+# o kustomize não lê arquivos acima da pasta do kustomization.yaml.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: keycloak
+
+resources:
+  - k8s/namespace.yaml
+  - k8s/postgres.yaml
+  - k8s/keycloak.yaml
+
+configMapGenerator:
+  # Configuração não sensível (host, realm, URLs dos apps)
+  - name: keycloak-config
+    envs:
+      - k8s/config.env
+  # Mesmo realm do docker compose; os ${...} vêm das variáveis do pod
+  - name: keycloak-realm
+    files:
+      - realm/automateflow-realm.json
+
+secretGenerator:
+  - name: keycloak-secrets
+    envs:
+      - k8s/secrets.env
+
+# O host público fica só em config.env: daqui ele vai para o Ingress
+replacements:
+  - source:
+      kind: ConfigMap
+      name: keycloak-config
+      fieldPath: data.KC_HOSTNAME
+    targets:
+      - select:
+          kind: Ingress
+          name: keycloak
+        fieldPaths:
+          - spec.rules.0.host

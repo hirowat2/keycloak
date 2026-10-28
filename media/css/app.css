@@ -1,0 +1,351 @@
+/* Moldura do sistema (menu lateral, topo, notificações). Usa os tokens de ui.css. */
+
+:root {
+    --app-sidebar-w: 256px;
+    --app-topbar-h: 60px;
+    --app-side-bg: #0d1b2a;
+    --app-side-text: #c3cdd9;
+    --app-side-muted: #7d8b9c;
+    --app-side-hover: rgba(255, 255, 255, 0.06);
+    --app-side-ativo: rgba(43, 179, 166, 0.16);
+    --app-side-borda: rgba(255, 255, 255, 0.08);
+    --app-sombra: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.08);
+}
+
+html.dark {
+    --app-side-bg: #0a1119;
+    --app-sombra: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+html, body.app-body { height: 100%; }
+body.app-body {
+    margin: 0;
+    background: var(--ct-bg);
+    color: var(--ct-text);
+    font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+.app-body a:not(.ct-btn) { color: inherit; }
+.app-body .ct-page a:not(.ct-btn):not(.ct-tab):not(.ct-card) { color: var(--ct-accent); }
+
+.app { display: flex; min-height: 100vh; }
+
+/* ------------------------------------------------------------ menu lateral */
+
+.app-sidebar {
+    position: fixed;
+    transition: width 0.2s ease, transform 0.2s ease;
+    inset: 0 auto 0 0;
+    z-index: 40;
+    width: var(--app-sidebar-w);
+    display: flex;
+    flex-direction: column;
+    background: var(--app-side-bg);
+    color: var(--app-side-text);
+    border-right: 1px solid var(--app-side-borda);
+    transition: transform 0.2s ease;
+}
+.app-marca {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    height: var(--app-topbar-h);
+    padding: 0 10px 0 20px;
+    border-bottom: 1px solid var(--app-side-borda);
+    flex-shrink: 0;
+}
+.app-marca-link { display: flex; align-items: center; gap: 10px; min-width: 0; text-decoration: none; }
+.app-marca-texto { min-width: 0; }
+.app-recolher {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--app-side-muted);
+    cursor: pointer;
+}
+.app-recolher:hover { background: var(--app-side-hover); color: #fff; }
+.app-recolher i { transition: transform 0.2s ease; }
+.app-marca-logo {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(135deg, #2bb3a6, #0f766e);
+    color: #fff;
+    font-weight: 800;
+    font-size: 15px;
+}
+.app-marca-nome { color: #fff; font-weight: 700; font-size: 16px; letter-spacing: -0.01em; }
+.app-marca-sub { display: block; color: var(--app-side-muted); font-size: 11px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
+
+.app-nav { flex: 1; overflow-y: auto; padding: 14px 12px; }
+.app-nav-secao { margin-bottom: 18px; }
+.app-nav-titulo {
+    margin: 0 0 6px;
+    padding: 0 10px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--app-side-muted);
+}
+.app-nav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.app-nav-link {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--app-side-text) !important;
+    text-decoration: none;
+}
+.app-nav-link i { width: 18px; text-align: center; font-size: 14px; color: var(--app-side-muted); }
+.app-nav-link:hover { background: var(--app-side-hover); color: #fff !important; }
+.app-nav-link:hover i { color: #fff; }
+.app-nav-link.is-ativo { background: var(--app-side-ativo); color: #fff !important; }
+.app-nav-link.is-ativo i { color: #5fd0c5; }
+.app-nav-link.is-ativo::before {
+    content: "";
+    position: absolute;
+    left: -12px;
+    top: 8px;
+    bottom: 8px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: #2bb3a6;
+}
+
+.app-usuario {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    border-top: 1px solid var(--app-side-borda);
+    flex-shrink: 0;
+}
+.app-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    background: #1f3448;
+    color: #cfe9e6;
+    font-size: 12.5px;
+    font-weight: 700;
+}
+.app-usuario-texto { min-width: 0; flex: 1; line-height: 1.25; }
+.app-usuario-nome { display: block; color: #fff; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-usuario-email { display: block; color: var(--app-side-muted); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-sair { color: var(--app-side-muted) !important; padding: 6px; border-radius: 6px; }
+.app-sair:hover { color: #fff !important; background: var(--app-side-hover); }
+
+/* ------------------------------------------------------------ área principal */
+
+.app-principal { flex: 1; min-width: 0; margin-left: var(--app-sidebar-w); display: flex; flex-direction: column; transition: margin-left 0.2s ease; }
+
+.app-topo {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    height: var(--app-topbar-h);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 24px;
+    background: color-mix(in srgb, var(--ct-surface) 85%, transparent);
+    backdrop-filter: saturate(180%) blur(8px);
+    border-bottom: 1px solid var(--ct-border);
+}
+.app-topo-titulo { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ct-text-2); }
+.app-topo-titulo strong { color: var(--ct-text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-icone-btn {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    border: 1px solid var(--ct-border);
+    background: var(--ct-surface);
+    color: var(--ct-text-2);
+    cursor: pointer;
+}
+.app-icone-btn:hover { color: var(--ct-text); background: var(--ct-muted); }
+.app-menu-btn { display: none; }
+.app-tema .fa-sun { display: none; }
+html.dark .app-tema .fa-sun { display: inline; }
+html.dark .app-tema .fa-moon { display: none; }
+
+.app-conteudo { flex: 1; width: 100%; max-width: 1440px; margin: 0 auto; }
+.app-rodape { padding: 16px 24px 20px; font-size: 12px; color: var(--ct-text-2); text-align: center; }
+
+.app-veu { display: none; }
+
+/* ------------------------------------------------------------ notificações */
+
+.app-toasts {
+    position: fixed;
+    top: calc(var(--app-topbar-h) + 12px);
+    right: 16px;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: min(380px, calc(100vw - 32px));
+}
+.app-toast {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--ct-surface);
+    border: 1px solid var(--ct-border);
+    border-left: 4px solid var(--ct-accent);
+    box-shadow: 0 10px 24px rgba(16, 24, 40, 0.14);
+    font-size: 13px;
+    color: var(--ct-text);
+    animation: app-toast-entra 0.18s ease-out;
+}
+.app-toast i { margin-top: 2px; }
+.app-toast p { margin: 0; flex: 1; line-height: 1.45; }
+.app-toast button { border: 0; background: none; color: var(--ct-text-2); cursor: pointer; padding: 0 2px; font-size: 16px; line-height: 1; }
+.app-toast--success { border-left-color: var(--ct-pos); }
+.app-toast--success i { color: var(--ct-pos); }
+.app-toast--error { border-left-color: var(--ct-neg); }
+.app-toast--error i { color: var(--ct-neg); }
+.app-toast--warning { border-left-color: #d97706; }
+.app-toast--warning i { color: #d97706; }
+.app-toast--info i { color: var(--ct-accent); }
+.app-toast.is-saindo { opacity: 0; transform: translateX(12px); transition: all 0.2s ease; }
+@keyframes app-toast-entra { from { opacity: 0; transform: translateY(-6px); } }
+
+/* ------------------------------------------------------------ celular e tablet */
+
+@media (max-width: 1023px) {
+    .app-sidebar { transform: translateX(-100%); }
+    .app.menu-aberto .app-sidebar { transform: none; box-shadow: 0 0 40px rgba(0, 0, 0, 0.35); }
+    .ct-card .ct-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .app.menu-aberto .app-veu { display: block; position: fixed; inset: 0; z-index: 35; background: rgba(8, 15, 25, 0.5); }
+    .app-principal { margin-left: 0; }
+    .app-menu-btn { display: grid; }
+    .app-topo { padding: 0 16px; }
+    .ct-page { padding: 18px 16px 40px; }
+}
+
+/* ------------------------------------------------------------ página pública */
+
+.app-publica {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background:
+        radial-gradient(1200px 600px at 10% -10%, rgba(43, 179, 166, 0.18), transparent 60%),
+        radial-gradient(900px 500px at 110% 110%, rgba(15, 118, 110, 0.16), transparent 60%),
+        var(--ct-bg);
+}
+.app-publica-cartao {
+    width: min(460px, 100%);
+    background: var(--ct-surface);
+    border: 1px solid var(--ct-border);
+    border-radius: 16px;
+    padding: 36px 32px;
+    box-shadow: 0 20px 50px rgba(16, 24, 40, 0.12);
+    text-align: center;
+}
+.app-publica-cartao .app-marca-logo { width: 48px; height: 48px; font-size: 22px; border-radius: 12px; margin: 0 auto 16px; }
+.app-publica-cartao h1 { font-size: 22px; font-weight: 700; margin: 0 0 6px; color: var(--ct-text); }
+.app-publica-cartao p { color: var(--ct-text-2); font-size: 14px; margin: 0 0 24px; line-height: 1.5; }
+.app-publica-cartao .ct-btn { width: 100%; justify-content: center; height: 42px; font-size: 14px; }
+.app-publica-recursos { list-style: none; padding: 0; margin: 24px 0 0; display: grid; gap: 8px; text-align: left; font-size: 13px; color: var(--ct-text-2); }
+.app-publica-recursos i { color: var(--ct-accent); width: 18px; }
+
+/* ------------------------------------------------------------ empresa avaliada */
+
+.app-empresa {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    max-width: 340px;
+    padding: 5px 12px;
+    border: 1px solid var(--ct-border);
+    border-radius: 999px;
+    background: var(--ct-surface);
+    color: var(--ct-text-2);
+    font-size: 12.5px;
+    font-weight: 500;
+}
+.app-empresa span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-empresa i { color: var(--ct-accent); }
+@media (max-width: 640px) {
+    .app-empresa { display: none; }
+}
+
+/* Troca de empresa, no menu lateral (só aparece para quem tem acesso a mais de uma). */
+.app-empresa-troca {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--app-side-borda);
+    flex-shrink: 0;
+}
+.app-empresa-rotulo {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--app-side-muted);
+}
+.app-empresa-troca select {
+    width: 100%;
+    min-width: 0;
+    padding: 7px 10px;
+    border: 1px solid var(--app-side-borda);
+    border-radius: 8px;
+    background: var(--app-side-hover);
+    color: #fff;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+.app-empresa-troca select:focus-visible { outline: 2px solid #2bb3a6; outline-offset: 1px; }
+.app-empresa-troca option { color: #0d1b2a; background: #fff; }
+
+/* ------------------------------------------------------------ menu recolhido (computador) */
+
+@media (min-width: 1024px) {
+    html.menu-recolhido { --app-sidebar-w: 72px; }
+    html.menu-recolhido .app-marca { flex-direction: column; justify-content: center; height: auto; padding: 14px 0 10px; }
+    html.menu-recolhido .app-marca-texto,
+    html.menu-recolhido .app-nav-titulo,
+    html.menu-recolhido .app-nav-link span,
+    html.menu-recolhido .app-usuario-texto,
+    html.menu-recolhido .app-empresa-troca { display: none; }
+    html.menu-recolhido .app-recolher i { transform: rotate(180deg); }
+    html.menu-recolhido .app-nav { padding: 12px 10px; }
+    html.menu-recolhido .app-nav-secao { margin-bottom: 10px; }
+    html.menu-recolhido .app-nav-secao + .app-nav-secao { border-top: 1px solid var(--app-side-borda); padding-top: 10px; }
+    html.menu-recolhido .app-nav-link { justify-content: center; padding: 10px 0; }
+    html.menu-recolhido .app-nav-link i { width: auto; font-size: 16px; }
+    html.menu-recolhido .app-nav-link.is-ativo::before { left: -10px; }
+    html.menu-recolhido .app-usuario { flex-direction: column; justify-content: center; gap: 6px; padding: 12px 0; }
+}
+@media (max-width: 1023px) {
+    .app-recolher { display: none; }
+}

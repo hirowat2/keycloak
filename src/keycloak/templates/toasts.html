@@ -1,0 +1,24 @@
+{# Mensagens do Django como notificações. Sucesso e informação somem sozinhas; erros e avisos ficam até fechar. #}
+<div class="app-toasts" role="status" aria-live="polite">
+  {% for message in messages %}
+    {% with tipo=message.level_tag|default:"info" %}
+      <div class="app-toast app-toast--{{ tipo }}" data-toast data-fixa="{% if tipo == 'error' or tipo == 'warning' %}1{% endif %}">
+        <i class="fa-solid {% if tipo == 'success' %}fa-circle-check{% elif tipo == 'error' %}fa-circle-xmark{% elif tipo == 'warning' %}fa-triangle-exclamation{% else %}fa-circle-info{% endif %}" aria-hidden="true"></i>
+        <p>{{ message }}</p>
+        <button type="button" aria-label="Fechar">&times;</button>
+      </div>
+    {% endwith %}
+  {% endfor %}
+</div>
+<script>
+  (function () {
+    function fechar(toast) {
+      toast.classList.add("is-saindo");
+      setTimeout(() => toast.remove(), 200);
+    }
+    document.querySelectorAll("[data-toast]").forEach((toast, i) => {
+      toast.querySelector("button").addEventListener("click", () => fechar(toast));
+      if (!toast.dataset.fixa) setTimeout(() => fechar(toast), 5000 + i * 700);
+    });
+  })();
+</script>

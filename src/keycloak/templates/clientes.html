@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% load custom_filters %}
+{% block title %}Clientes | CommercialProposal{% endblock %}
+
+{% block main %}
+<div class="ct-page">
+  <header class="ct-header">
+    <div>
+      <p class="ct-eyebrow">Cadastros</p>
+      <h1 class="ct-title">Clientes</h1>
+      <p class="ct-subtitle">Contas para quem as propostas são feitas, com os contatos e o histórico comercial de cada uma.</p>
+    </div>
+    {% if pode_editar and not form %}<a class="ct-btn ct-btn--primario" href="?novo=1#cadastro">+ Novo cliente</a>{% endif %}
+  </header>
+
+  {% if form %}
+  <section class="ct-card ct-cadastro" id="cadastro">
+    <div class="ct-card-head" style="padding:0 0 12px">
+      <h2>{% if editando %}Editar {{ editando }}{% else %}Novo cliente{% endif %}</h2>
+      <a class="ct-btn ct-btn--pequeno" href="?">Cancelar</a>
+    </div>
+    <form method="post">
+      {% csrf_token %}<input type="hidden" name="empresa_tela" value="{{ empresa.pk }}">
+      <input type="hidden" name="action" value="salvar">
+      {% if editando %}<input type="hidden" name="id" value="{{ editando.pk }}">{% endif %}
+      {% include "form_secoes.html" %}
+      {% for campo_sugestao, valores in sugestoes.items %}
+        <datalist id="sugestoes-{{ campo_sugestao }}">{% for v in valores %}<option value="{{ v }}">{% endfor %}</datalist>
+      {% endfor %}
+
+      <fieldset class="ct-cadastro-secao">
+        <legend>Contatos</legend>
+        {{ contatos.management_form }}
+        {% for e in contatos.non_form_errors %}<div class="ct-alert">{{ e }}</div>{% endfor %}
+        <table class="ct-table ct-table--compacta pc-contatos">
+          <thead><tr><th>Nome</th><th>Cargo</th><th>E-mail</th><th>Telefone</th><th>Principal</th><th></th></tr></thead>
+          <tbody>
+            {% for c in contatos %}
+              <tr>
+                <td>{{ c.id }}{{ c.nome }}{% for e in c.nome.errors %}<span class="ct-neg ct-note">{{ e }}</span>{% endfor %}</td>
+                <td>{{ c.cargo }}</td>
+                <td>{{ c.email }}{% for e in c.email.errors %}<span class="ct-neg ct-note">{{ e }}</span>{% endfor %}</td>
+                <td>{{ c.telefone }}</td>
+                <td>{{ c.principal }}</td>
+                <td>{% if c.instance.pk %}<label class="ct-note">{{ c.DELETE }} remover</label>{% endif %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p class="ct-note">Para mais contatos, salve e edite de novo: sempre sobra uma linha em branco.</p>
+      </fieldset>
+
+      <div class="ct-actions" style="margin-top:12px">
+        <button class="ct-btn ct-btn--primario">Salvar</button>
+        <a class="ct-btn" href="?">Cancelar</a>
+      </div>
+    </form>
+  </section>
+  {% endif %}
+
+  <nav class="ct-tabs">
+    {% for chave, rotulo in visoes %}
+      <a class="ct-tab {% if chave == ver %}ct-tab--ativa{% endif %}" href="?ver={{ chave }}{% if busca %}&q={{ busca|urlencode }}{% endif %}">{{ rotulo }}</a>
+    {% endfor %}
+  </nav>
+
+  <form method="get" class="ct-card ct-filters">
+    <input type="hidden" name="ver" value="{{ ver }}">
+    <div class="ct-field" style="flex:1;min-width:240px"><label for="q">Buscar</label><input type="search" id="q" name="q" value="{{ busca }}" placeholder="Nome, CNPJ/CPF, cidade ou contato"></div>
+    <button class="ct-btn ct-btn--primario">Filtrar</button>
+  </form>
+
+  <section class="ct-card ct-card--flush">
+    <div class="ct-table-wrap">
+      <table class="ct-table">
+        <thead><tr><th>Cliente</th><th>Segmento</th><th>Cidade</th><th>Contato principal</th><th class="ct-num">Propostas</th><th class="ct-num">Ganho</th>{% if pode_editar %}<th>Ações</th>{% endif %}</tr></thead>
+        <tbody>
+          {% for c in clientes %}
+            <tr>
+              <td><span class="ct-fornecedor">{{ c }}</span>{% if c.nome_fantasia %}<span class="ct-sub">{{ c.nome }}</span>{% endif %}{% if c.documento %}<span class="ct-cnpj">{{ c.documento }}</span>{% endif %}{% if not c.ativo %}<span class="ct-badge">inativo</span>{% endif %}</td>
+              <td>{{ c.segmento|default:"—" }}</td>
+              <td>{{ c.cidade|default:"—" }}{% if c.uf %}/{{ c.uf }}{% endif %}</td>
+              <td>{% with p=c.contatos.all|first %}{% if p %}{{ p.nome }}<span class="ct-sub">{{ p.email|default:p.telefone }}</span>{% else %}—{% endif %}{% endwith %}</td>
+              <td class="ct-num"><a href="/app/propostas/?ver=todas&cliente={{ c.pk }}">{{ c.qtd_propostas }}</a>{% if c.abertas %}<span class="ct-sub">{{ c.abertas }} aberta{{ c.abertas|pluralize }}</span>{% endif %}</td>
+              <td class="ct-num">{{ c.ganho|default:0|brl }}</td>
+              {% if pode_editar %}
+              <td class="ct-acoes-linha">
+                <a class="ct-btn ct-btn--pequeno" href="?editar={{ c.pk }}#cadastro">Editar</a>
+                {% if c.ativo %}<a class="ct-btn ct-btn--pequeno" href="/app/propostas/?novo=1&cliente_novo={{ c.pk }}">+ Proposta</a>{% endif %}
+                <form method="post">{% csrf_token %}<input type="hidden" name="empresa_tela" value="{{ empresa.pk }}"><input type="hidden" name="id" value="{{ c.pk }}">
+                  <button class="ct-btn ct-btn--pequeno" name="action" value="{% if c.ativo %}inativar{% else %}reativar{% endif %}">{% if c.ativo %}Inativar{% else %}Reativar{% endif %}</button>
+                </form>
+              </td>
+              {% endif %}
+            </tr>
+          {% empty %}
+            <tr><td colspan="7" class="ct-empty">Nenhum cliente neste filtro.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <p class="ct-note">Clientes com propostas não são apagados, para não perder o histórico: inative-os para tirá-los das listas de escolha.</p>
+</div>
+{% endblock main %}

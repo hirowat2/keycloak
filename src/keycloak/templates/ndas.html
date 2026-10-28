@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% load custom_filters %}
+{% block title %}NDAs | CommercialProposal{% endblock %}
+
+{% block main %}
+<div class="ct-page">
+  <header class="ct-header">
+    <div>
+      <p class="ct-eyebrow">Comercial</p>
+      <h1 class="ct-title">NDAs — acordos de confidencialidade</h1>
+      <p class="ct-subtitle">Acordos de confidencialidade por cliente: os documentos encontrados no SharePoint (nomes com NDA, confidencialidade ou sigilo) e, quando houver, o vencimento registrado na planilha de controle de contratos.</p>
+    </div>
+    <a class="ct-btn" href="/app/contratos/">Contratos →</a>
+  </header>
+
+  <form method="get" class="ct-card ct-filters">
+    <div class="ct-field" style="flex:1;min-width:240px"><label for="q">Buscar</label><input type="search" id="q" name="q" value="{{ busca }}" placeholder="Cliente ou nome do arquivo"></div>
+    <button class="ct-btn ct-btn--primario">Filtrar</button>
+  </form>
+
+  <section class="ct-kpis">
+    <div class="ct-kpi"><p class="ct-kpi-label">Clientes com NDA</p><p class="ct-kpi-value">{{ linhas|length }}</p><p class="ct-kpi-sub">{{ total_arquivos }} documento{{ total_arquivos|pluralize }}</p></div>
+    <div class="ct-kpi"><p class="ct-kpi-label">Assinados</p><p class="ct-kpi-value ct-pos">{{ assinados }}</p><p class="ct-kpi-sub">pelo nome do arquivo ou pela carteira</p></div>
+    <div class="ct-kpi"><p class="ct-kpi-label">Vencem em até {{ aviso_dias }} dias</p><p class="ct-kpi-value">{{ vencendo }}</p><p class="ct-kpi-sub">pela carteira de contratos</p></div>
+    <div class="ct-kpi"><p class="ct-kpi-label">Vencidos</p><p class="ct-kpi-value {% if vencidos %}ct-neg{% endif %}">{{ vencidos }}</p><p class="ct-kpi-sub">renovar ou confirmar</p></div>
+  </section>
+
+  {% if sem_nda %}
+  <section class="ct-alert">
+    <strong>{{ sem_nda|length }} cliente{{ sem_nda|length|pluralize }} com contrato em andamento e nenhum NDA encontrado:</strong>
+    {% for c in sem_nda %}{{ c.cliente_nome }}{% if c.sistema %} ({{ c.sistema|truncatechars:30 }}){% endif %}{% if not forloop.last %}; {% endif %}{% endfor %}.
+    Confira se o acordo existe com outro nome ou se precisa ser feito.
+  </section>
+  {% endif %}
+
+  <section class="ct-card ct-card--flush">
+    <div class="ct-table-wrap">
+      <table class="ct-table">
+        <thead><tr><th>Cliente</th><th>Situação</th><th>Vencimento</th><th>Documentos</th><th>Último arquivo</th></tr></thead>
+        <tbody>
+          {% for l in linhas %}
+            <tr>
+              <td>
+                {% if l.cliente %}<a href="/app/propostas/?ver=todas&cliente={{ l.cliente.pk }}">{{ l.nome }}</a>{% else %}{{ l.nome }}{% endif %}
+                {% if l.assinado %}<span class="ct-badge pc-etapa--ganha">assinado</span>{% endif %}
+              </td>
+              <td><span class="ct-badge nd-{{ l.situacao }}">{{ rotulos|chave:l.situacao }}</span></td>
+              <td class="ct-nowrap">{{ l.vencimento|date:"d/m/Y"|default:"—" }}
+                {% for c in l.carteira %}<span class="ct-sub" title="{{ c.historico }}">{{ c.sistema|truncatechars:28 }}{% if c.link %} · <a href="{{ c.link }}" target="_blank" rel="noopener">contrato</a>{% endif %}</span>{% endfor %}
+              </td>
+              <td>
+                {% for a in l.arquivos %}<a class="nd-arquivo" href="{{ a.url }}" target="_blank" rel="noopener" title="{{ a.caminho }}">{{ a.nome|truncatechars:60 }}</a>{% empty %}<span class="ct-sub">só na carteira de contratos</span>{% endfor %}
+              </td>
+              <td class="ct-nowrap">{{ l.ultimo|date:"d/m/Y"|default:"—" }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="5" class="ct-empty">Nenhum NDA encontrado{% if busca %} neste filtro{% endif %}. Os NDAs vêm do acervo da <a href="/app/sincronizacao/">sincronização</a>{% if not tem_carteira %} e, quando configurada, da planilha de controle de contratos{% endif %}.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <p class="ct-note">Um documento conta como NDA pelo nome do arquivo (NDA, confidencialidade, sigilo). “Assinado” vem do nome (assinado, DocuSign, Clicksign) ou da coluna “assinado?” da planilha de contratos. O vencimento é o da linha da planilha de contratos que cita o NDA.</p>
+</div>
+{% endblock main %}

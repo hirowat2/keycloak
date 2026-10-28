@@ -1,0 +1,58 @@
+{% load app_menu custom_filters %}
+<aside class="app-sidebar" aria-label="Menu principal">
+  <div class="app-marca">
+    <a class="app-marca-link" href="/app/" title="{{ menu.empresa|default:'CommercialProposal' }}">
+      <span class="app-marca-logo" aria-hidden="true">P</span>
+      <span class="app-marca-texto">
+        <span class="app-marca-nome">Propostas</span>
+        <span class="app-marca-sub">{{ menu.empresa|default:"Controle comercial" }}</span>
+      </span>
+    </a>
+    <button type="button" class="app-recolher" data-recolher-menu aria-label="Recolher menu" title="Recolher menu">
+      <i class="fa-solid fa-angles-left" aria-hidden="true"></i>
+    </button>
+  </div>
+
+  {% if menu.empresas|length > 1 %}
+    <form class="app-empresa-troca" method="post" action="/app/empresa/" title="Empresa: {{ menu.empresa }}">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.path }}">
+      <label class="app-empresa-rotulo" for="empresa-ativa"><i class="fa-solid fa-building" aria-hidden="true"></i><span>Empresa</span></label>
+      <select id="empresa-ativa" name="empresa" data-trocar-empresa>
+        {% for e in menu.empresas %}
+          <option value="{{ e.pk }}" {% if e.pk == menu.empresa_id %}selected{% endif %}>{{ e.nome }}</option>
+        {% endfor %}
+      </select>
+      <noscript><button type="submit" class="ct-btn">Trocar</button></noscript>
+    </form>
+  {% endif %}
+
+  <nav class="app-nav">
+    {% for secao in menu.secoes %}
+      <div class="app-nav-secao">
+        <p class="app-nav-titulo">{{ secao.titulo }}</p>
+        <ul>
+          {% for item in secao.itens %}
+            <li>
+              <a class="app-nav-link {% if item.ativo %}is-ativo{% endif %}" href="{{ item.href }}" title="{{ item.label }}" {% if item.ativo %}aria-current="page"{% endif %}>
+                <i class="{{ item.icon }}" aria-hidden="true"></i>
+                <span>{{ item.label }}</span>
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endfor %}
+  </nav>
+
+  {% if request.user.is_authenticated %}
+    <div class="app-usuario">
+      <span class="app-avatar" aria-hidden="true" title="{{ request.user|nome_usuario }}">{{ request.user|iniciais }}</span>
+      <span class="app-usuario-texto">
+        <span class="app-usuario-nome">{{ request.user|nome_usuario }}</span>
+        <span class="app-usuario-email">{{ request.user.email|default:"" }}</span>
+      </span>
+      <a class="app-sair" href="/logout" title="Sair" aria-label="Sair"><i class="fa-solid fa-arrow-right-from-bracket"></i></a>
+    </div>
+  {% endif %}
+</aside>

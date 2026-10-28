@@ -1,0 +1,15 @@
+<header class="app-topo">
+  <button type="button" class="app-icone-btn app-menu-btn" data-abrir-menu aria-label="Abrir menu"><i class="fa-solid fa-bars"></i></button>
+  <div class="app-topo-titulo">
+    {% if menu.ativo %}
+      <i class="{{ menu.ativo.icon }}" aria-hidden="true"></i>
+      <strong>{{ menu.ativo.label }}</strong>
+    {% else %}
+      <strong>Início</strong>
+    {% endif %}
+  </div>
+  {% if menu.empresa %}<span class="app-empresa" title="Empresa ativa"><i class="fa-solid fa-building" aria-hidden="true"></i><span>{{ menu.empresa }}</span></span>{% endif %}
+  <button type="button" class="app-icone-btn app-tema" data-alternar-tema aria-label="Alternar tema claro/escuro" title="Alternar tema">
+    <i class="fa-solid fa-moon"></i><i class="fa-solid fa-sun"></i>
+  </button>
+</header>

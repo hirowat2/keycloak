@@ -1,0 +1,26 @@
+{% load static component_tags pwa custom_filters %}
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="CommercialProposal — controle de propostas comerciais." />
+<meta name="color-scheme" content="light dark" />
+<script>
+  // Aplica o tema antes da primeira pintura para não piscar.
+  (function () {
+    try {
+      var salvo = localStorage.getItem("color-theme");
+      var escuro = salvo ? salvo === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+      document.documentElement.classList.toggle("dark", escuro);
+      document.documentElement.classList.toggle("menu-recolhido", localStorage.getItem("menu-recolhido") === "1");
+    } catch (e) {
+        // localStorage indisponível (modo privado/bloqueado): fica o tema padrão.
+      }
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+{% component_css_dependencies %}
+{% progressive_web_app_meta %}
+<link rel="stylesheet" type="text/css" href="{% media_url "css/ui.css" %}" />
+<link rel="stylesheet" type="text/css" href="{% media_url "css/app.css" %}" />

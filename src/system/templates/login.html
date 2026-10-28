@@ -1,0 +1,51 @@
+{% load static %}<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Entrando… | CommercialProposal</title>
+    <script>
+      try {
+        var t = localStorage.getItem("color-theme");
+        document.documentElement.classList.toggle("dark", t ? t === "dark" : matchMedia("(prefers-color-scheme: dark)").matches);
+      } catch (e) {
+        // localStorage indisponível (modo privado/bloqueado): fica o tema padrão.
+      }
+      window.LOGIN_NEXT = "{{ request.GET.next|escapejs }}";
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/media/css/ui.css" />
+    <link rel="stylesheet" href="/media/css/app.css" />
+    <style>
+      .app-spinner {
+        width: 28px;
+        height: 28px;
+        margin: 8px auto 0;
+        border: 3px solid var(--ct-border);
+        border-top-color: var(--ct-accent);
+        border-radius: 50%;
+        animation: girar 0.8s linear infinite;
+      }
+      @keyframes girar { to { transform: rotate(360deg); } }
+    </style>
+    <script defer type="module">
+      import { keycloakInit } from "{% static 'sso/keycloak.js' %}";
+
+      keycloakInit(
+        "{{ KEYCLOAK_HOST|escapejs }}",
+        "{{ KEYCLOAK_REALM|escapejs }}",
+        "{{ KEYCLOAK_CLIENT_ID|escapejs }}",
+      );
+    </script>
+  </head>
+  <body class="app-body">
+    <main class="app-publica">
+      <div class="app-publica-cartao" role="status" aria-live="polite">
+        <div class="app-marca-logo" aria-hidden="true">P</div>
+        <h1>Entrando no CommercialProposal</h1>
+        <p>Redirecionando para o login da sua conta corporativa…</p>
+        <div class="app-spinner" aria-hidden="true"></div>
+      </div>
+    </main>
+  </body>
+</html>

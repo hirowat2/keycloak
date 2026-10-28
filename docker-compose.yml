@@ -1,0 +1,182 @@
+services:
+  commercialproposal:
+    hostname: commercialproposal
+    build:
+      context: .
+      # Token das dependências privadas do GitHub; não fica gravado na imagem.
+      secrets:
+        - github_pat
+    deploy:
+      mode: replicated
+      replicas: 1
+    restart: on-failure
+    env_file:
+      - .env
+    environment:
+      # General
+      - DEBUG=true
+      - RUN_MAKEMIGRATIONS=1
+      - GUNICORN_WORKERS=3
+      - GUNICORN_TIMEOUT=600
+      - DJANGO_SUPERUSER_USERNAME=estatcamp
+      - DJANGO_SUPERUSER_PASSWORD=estatcamp
+      - DJANGO_SUPERUSER_EMAIL=estatcamp@estatcamp.com.br
+      - HOST=https://propostas.docker.localhost
+      # Django DB
+      - DJANGO_DATABASE_ENGINE=${DJANGO_DATABASE_ENGINE:-postgresql}
+      - DJANGO_DATABASE_HOST=${DJANGO_DATABASE_HOST:-propostas-db}
+      - DJANGO_DATABASE_NAME=${DJANGO_DATABASE_NAME:-commercialproposal}
+      - DJANGO_DATABASE_USERNAME=${DJANGO_DATABASE_USERNAME:-postgres}
+      - DJANGO_DATABASE_PASSWORD=${DJANGO_DATABASE_PASSWORD:-estatcamp}
+      - DJANGO_DATABASE_PORT=${DJANGO_DATABASE_PORT:-5432}
+      # Keycloak
+      - KEYCLOAK_REALM=commercialproposal
+      - KEYCLOAK_CLIENT_ID=commercialproposal
+      - KEYCLOAK_HOST=https://keycloak-propostas.docker.localhost/
+      # Endereço do Keycloak dentro da rede do Docker, para baixar as chaves que conferem o token
+      - KEYCLOAK_INTERNAL_URL=http://propostas-keycloak:8080/
+      # SharePoint (Microsoft Graph, só leitura); o segredo vem do .env, nunca do repositório
+      - SHAREPOINT_TENANT_ID=${SHAREPOINT_TENANT_ID:-}
+      - SHAREPOINT_CLIENT_ID=${SHAREPOINT_CLIENT_ID:-}
+      - SHAREPOINT_CLIENT_SECRET=${SHAREPOINT_CLIENT_SECRET:-}
+      # Sincronização automática com o SharePoint (minutos entre rodadas; 0 desliga)
+      - SHAREPOINT_INTERVALO_MINUTOS=${SHAREPOINT_INTERVALO_MINUTOS:-60}
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.commercialproposal.tls=true
+      - traefik.http.routers.commercialproposal.rule=Host(`propostas.docker.localhost`)
+    volumes:
+      - ${PWD}/data:/usr/src/data
+      - ${PWD}/src:/usr/src/src
+      - ${PWD}/media:/usr/src/media
+      - ${PWD}/static:/usr/src/static
+    networks:
+      - default
+      - proxy
+    depends_on:
+      propostas-db:
+        condition: service_healthy
+
+  # ------------------------------------------------ DATABASES -----------------------------------------------------------
+  # Nomes com o prefixo "propostas-" e banco só na rede interna da stack: a rede "proxy" é
+  # compartilhada com outros sistemas (ex.: CostManage), e nomes iguais lá se misturam no DNS.
+
+  propostas-db:
+    image: postgres:16-alpine
+    restart: on-failure
+    environment:
+      - POSTGRES_DB=commercialproposal
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=estatcamp
+    networks:
+      - default
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d commercialproposal"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ------------------------------------------- DATABASES DASHBOARDS -----------------------------------------------------
+
+  propostas-adminer:
+    image: wodby/adminer:4.8
+    restart: on-failure
+    environment:
+      - ADMINER_DEFAULT_DB_DRIVER=pgsql
+      - ADMINER_DEFAULT_DB_HOST=propostas-db
+      - ADMINER_DEFAULT_DB_NAME=commercialproposal
+      - ADMINER_DESIGN=nette
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.propostas-adminer.tls=true
+      - traefik.http.routers.propostas-adminer.rule=Host(`adminer-propostas.docker.localhost`)
+    networks:
+      - default
+      - proxy
+
+  propostas-keycloak:
+    image: quay.io/keycloak/keycloak:26.1.5-0
+    restart: on-failure
+    command: start-dev --import-realm
+    environment:
+      - KC_HOSTNAME_STRICT=true
+      - KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true
+      - KC_HOSTNAME=https://keycloak-propostas.docker.localhost/
+      - KC_BOOTSTRAP_ADMIN_USERNAME=admin
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=admin
+      - KC_HEALTH_ENABLED=true
+      - KC_METRICS_ENABLED=true
+      - KC_TLS_HOSTNAME_VERIFIER=ANY
+      - KC_HTTP_ENABLED=true
+      - KC_PROXY_HEADERS=xforwarded
+      - KC_LOG_CONSOLE_LEVEL=error
+    volumes:
+      - ./data/keycloak/realm/:/opt/keycloak/data/import/:ro
+    # https://gist.github.com/sarath-soman/5d9aec06953bbd0990c648605d4dba07?permalink_comment_id=5376088#gistcomment-5376088
+    healthcheck:
+      test: [
+          "CMD-SHELL",
+          "exec 3<>/dev/tcp/localhost/8080; \
+          echo -en 'GET /health/ready' >&3; \
+          # Give the server a moment to respond, then search for 'UP'
+          if timeout 3 cat <&3 | grep -m 1 'UP'; then \
+          exec 3<&-; exec 3>&-; exit 0; \
+          else \
+          exec 3<&-; exec 3>&-; exit 1; \
+          fi",
+        ]
+      interval: 60s
+      timeout: 20s
+      retries: 5
+      start_period: 60s
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.propostas-keycloak.tls=true
+      - traefik.http.routers.propostas-keycloak.rule=Host(`keycloak-propostas.docker.localhost`)
+    networks:
+      - default
+      - proxy
+
+  reverse-proxy:
+    image: traefik:3.7.1
+    security_opt:
+      - no-new-privileges:true
+    restart: on-failure
+    ports:
+      - 80:80
+      - 443:443
+      - 8080:8080
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${HOME}/.certs:/etc/certs:ro
+      - ${HOME}/.traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ${HOME}/.traefik/config.yml:/etc/traefik/config.yml:ro
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.traefik=true
+    networks:
+      - proxy
+    depends_on:
+      commercialproposal:
+        condition: service_healthy
+      propostas-keycloak:
+        condition: service_healthy
+
+#  NETWORK -----------------------------------------------------------
+
+networks:
+  default:
+  proxy:
+    external: true
+
+secrets:
+  github_pat:
+    environment: GITHUB_PAT
+
+volumes:
+  postgres-data:

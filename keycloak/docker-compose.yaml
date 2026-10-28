@@ -1,0 +1,110 @@
+services:
+  keycloak:
+    hostname: keycloak
+    image: quay.io/keycloak/keycloak:26.8.1
+    # --import-realm só cria os realms de ./realm que ainda não existem no banco
+    command: start --import-realm
+    restart: on-failure
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Admin do realm master (só é criado no primeiro boot, com o banco vazio)
+      - KC_BOOTSTRAP_ADMIN_USERNAME=${KC_ADMIN_USER:-admin}
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=${KC_ADMIN_PASSWORD:-admin}
+      # Banco
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://keycloak-db:5432/${KC_DB_NAME:-keycloak}
+      - KC_DB_USERNAME=${KC_DB_USER:-keycloak}
+      - KC_DB_PASSWORD=${KC_DB_PASSWORD:-keycloak}
+      # Atrás do Traefik: TLS termina no proxy, o Keycloak fala HTTP na 8080.
+      # O back-channel (http://keycloak:8080) continua funcionando para os apps da rede proxy.
+      - KC_HOSTNAME=https://${KC_HOST:-keycloak.docker.localhost}
+      - KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true
+      - KC_HTTP_ENABLED=true
+      - KC_PROXY_HEADERS=xforwarded
+      - KC_HEALTH_ENABLED=true
+      - KC_METRICS_ENABLED=true
+      - KC_LOG_LEVEL=${KC_LOG_LEVEL:-info}
+      # Usados como placeholders em realm/*.json
+      - KC_REALM=${KC_REALM:-automateflow}
+      - KC_REALM_ADMIN_USER=${KC_REALM_ADMIN_USER:-admin}
+      - KC_REALM_ADMIN_PASSWORD=${KC_REALM_ADMIN_PASSWORD:-admin}
+      - ATLAS_INSIGHTS_URL=${ATLAS_INSIGHTS_URL:-https://atlas-insights.docker.localhost}
+      - LINODE_INSIGHTS_URL=${LINODE_INSIGHTS_URL:-https://linode-insights.docker.localhost}
+      - MONGO_MIGRATOR_URL=${MONGO_MIGRATOR_URL:-https://mongo-migrator.docker.localhost}
+    volumes:
+      - ./realm:/opt/keycloak/data/import:ro
+    # Health fica na porta de gerenciamento (9000); a imagem não tem curl
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          exec 3<>/dev/tcp/localhost/9000 &&
+          printf 'GET /health/ready HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3 &&
+          grep -q '"UP"' <&3
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.keycloak.tls=true
+      - traefik.http.routers.keycloak.rule=Host(`${KC_HOST:-keycloak.docker.localhost}`)
+      - traefik.http.services.keycloak.loadbalancer.server.port=8080
+    networks:
+      - proxy
+      - keycloak
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+
+  keycloak-db:
+    hostname: keycloak-db
+    image: postgres:17-alpine
+    restart: on-failure
+    environment:
+      - POSTGRES_DB=${KC_DB_NAME:-keycloak}
+      - POSTGRES_USER=${KC_DB_USER:-keycloak}
+      - POSTGRES_PASSWORD=${KC_DB_PASSWORD:-keycloak}
+    volumes:
+      - keycloak-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - traefik.enable=false
+    # Rede própria: o banco não fica exposto aos outros projetos da rede proxy
+    networks:
+      - keycloak
+
+  # Só sobe com `--profile traefik` (ou `make compose` quando não há Traefik nas portas 80/443).
+  # Usa a mesma config local de ~/.traefik e ~/.certs dos outros projetos.
+  reverse-proxy:
+    image: traefik:3.7.1
+    profiles: [traefik]
+    security_opt:
+      - no-new-privileges:true
+    restart: on-failure
+    ports:
+      - 80:80
+      - 443:443
+      - 8080:8080
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${HOME}/.certs:/etc/certs:ro
+      - ${HOME}/.traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ${HOME}/.traefik/config.yml:/etc/traefik/config.yml:ro
+    networks:
+      - proxy
+
+volumes:
+  keycloak-db:
+
+networks:
+  proxy:
+    external: true
+  keycloak:

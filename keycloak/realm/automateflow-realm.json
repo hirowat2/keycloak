@@ -1,0 +1,86 @@
+{
+  "realm": "${KC_REALM}",
+  "displayName": "AutomateFlow",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "resetPasswordAllowed": false,
+  "bruteForceProtected": true,
+  "internationalizationEnabled": true,
+  "supportedLocales": ["pt-BR", "en"],
+  "defaultLocale": "pt-BR",
+  "roles": {
+    "realm": [
+      {
+        "name": "ADMIN",
+        "description": "Administrador: vira superuser nos apps"
+      }
+    ]
+  },
+  "users": [
+    {
+      "username": "${KC_REALM_ADMIN_USER}",
+      "email": "${KC_REALM_ADMIN_USER}@automateflow.local",
+      "firstName": "Admin",
+      "lastName": "AutomateFlow",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${KC_REALM_ADMIN_PASSWORD}",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["default-roles-${KC_REALM}", "ADMIN"]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "atlas-insights",
+      "name": "Atlas Insights",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["${ATLAS_INSIGHTS_URL}/oidc/callback/"],
+      "webOrigins": ["${ATLAS_INSIGHTS_URL}"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "${ATLAS_INSIGHTS_URL}/*"
+      }
+    },
+    {
+      "clientId": "linode-insights",
+      "name": "Linode Insights",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["${LINODE_INSIGHTS_URL}/oidc/callback/"],
+      "webOrigins": ["${LINODE_INSIGHTS_URL}"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "${LINODE_INSIGHTS_URL}/*"
+      }
+    },
+    {
+      "clientId": "mongo-migrator",
+      "name": "Mongo Migrator",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["${MONGO_MIGRATOR_URL}/oidc/callback/"],
+      "webOrigins": ["${MONGO_MIGRATOR_URL}"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "${MONGO_MIGRATOR_URL}/*"
+      }
+    }
+  ]
+}

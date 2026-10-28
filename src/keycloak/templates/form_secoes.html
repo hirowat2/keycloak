@@ -1,0 +1,18 @@
+{% load custom_filters %}
+{% comment %}Campos de um formulário agrupados em form.SECOES = [(título, [campos])]. Contexto: form.{% endcomment %}
+{% if form.non_field_errors %}<div class="ct-alert">{% for e in form.non_field_errors %}{{ e }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</div>{% endif %}
+{% for titulo, campos in form.SECOES %}
+  <fieldset class="ct-cadastro-secao">
+    <legend>{{ titulo }}</legend>
+    <div class="ct-cadastro-campos">
+      {% for nome_campo in campos %}{% with f=form|campo:nome_campo %}{% if f %}
+        <div class="ct-field {% if f.field.widget.attrs.rows %}ct-field--largo{% endif %}">
+          <label for="{{ f.id_for_label }}">{{ f.label }}{% if f.field.required %} *{% endif %}</label>
+          {{ f }}
+          {% if f.help_text %}<span class="ct-note">{{ f.help_text }}</span>{% endif %}
+          {% for e in f.errors %}<span class="ct-neg ct-note">{{ e }}</span>{% endfor %}
+        </div>
+      {% endif %}{% endwith %}{% endfor %}
+    </div>
+  </fieldset>
+{% endfor %}

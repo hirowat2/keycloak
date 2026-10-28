@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% load custom_filters %}
+{% block title %}Produtos e serviços | CommercialProposal{% endblock %}
+
+{% block main %}
+<div class="ct-page">
+  <header class="ct-header">
+    <div>
+      <p class="ct-eyebrow">Cadastros</p>
+      <h1 class="ct-title">Produtos e serviços</h1>
+      <p class="ct-subtitle">Preços de tabela usados nas propostas. Descontos acima de {{ desconto_maximo|pct:2 }} sobre a tabela precisam da aprovação de um Master. Mudar um preço não altera propostas já feitas.</p>
+    </div>
+    {% if pode_editar and not form %}<a class="ct-btn ct-btn--primario" href="?novo=1#cadastro">+ Novo item</a>{% endif %}
+  </header>
+
+  {% if form %}
+  <section class="ct-card ct-cadastro" id="cadastro">
+    <div class="ct-card-head" style="padding:0 0 12px">
+      <h2>{% if editando %}Editar {{ editando }}{% else %}Novo item{% endif %}</h2>
+      <a class="ct-btn ct-btn--pequeno" href="?">Cancelar</a>
+    </div>
+    <form method="post">
+      {% csrf_token %}<input type="hidden" name="empresa_tela" value="{{ empresa.pk }}">
+      {% if editando %}<input type="hidden" name="id" value="{{ editando.pk }}">{% endif %}
+      {% include "form_secoes.html" %}
+      <div class="ct-actions" style="margin-top:12px">
+        <button class="ct-btn ct-btn--primario">Salvar</button>
+        <a class="ct-btn" href="?">Cancelar</a>
+      </div>
+    </form>
+  </section>
+  {% endif %}
+
+  <form method="get" class="ct-card ct-filters">
+    <div class="ct-field">
+      <label for="tipo">Tipo</label>
+      <select id="tipo" name="tipo"><option value="">Todos</option>{% for chave, rotulo in tipos %}<option value="{{ chave }}" {% if chave == tipo %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select>
+    </div>
+    <div class="ct-field" style="flex:1;min-width:220px"><label for="q">Buscar</label><input type="search" id="q" name="q" value="{{ busca }}" placeholder="Código, nome ou descrição"></div>
+    <label class="ct-field ct-field--check"><input type="checkbox" name="inativos" value="1" {% if inativos %}checked{% endif %}> Mostrar inativos</label>
+    <button class="ct-btn ct-btn--primario">Filtrar</button>
+  </form>
+
+  <section class="ct-card ct-card--flush">
+    <div class="ct-table-wrap">
+      <table class="ct-table">
+        <thead><tr><th>Código</th><th>Nome</th><th>Tipo</th><th>Unidade</th><th class="ct-num">Preço de tabela</th><th class="ct-num">Em propostas</th>{% if pode_editar %}<th></th>{% endif %}</tr></thead>
+        <tbody>
+          {% for i in itens %}
+            <tr>
+              <td class="ct-codigo">{{ i.codigo|default:"—" }}</td>
+              <td><span class="ct-fornecedor">{{ i.nome }}</span>{% if i.descricao %}<span class="ct-sub">{{ i.descricao|truncatechars:90 }}</span>{% endif %}{% if not i.ativo %}<span class="ct-badge">inativo</span>{% endif %}</td>
+              <td>{{ i.get_tipo_display }}</td>
+              <td>{{ i.unidade }}</td>
+              <td class="ct-num">{{ i.preco|brl }}</td>
+              <td class="ct-num">{{ i.usos }}</td>
+              {% if pode_editar %}<td><a class="ct-btn ct-btn--pequeno" href="?editar={{ i.pk }}#cadastro">Editar</a></td>{% endif %}
+            </tr>
+          {% empty %}
+            <tr><td colspan="7" class="ct-empty">Nenhum item neste filtro.{% if pode_editar %} <a href="?novo=1#cadastro">Cadastre o primeiro</a>.{% endif %}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% if not pode_editar %}<p class="ct-note">Só gestores (papel Master) cadastram e alteram preços.</p>{% endif %}
+</div>
+{% endblock main %}

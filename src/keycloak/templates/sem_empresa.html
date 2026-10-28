@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Sem acesso | CommercialProposal{% endblock %}
+
+{% block main %}
+<div class="ct-page">
+  <header class="ct-header">
+    <div>
+      <p class="ct-eyebrow">Acesso</p>
+      <h1 class="ct-title">Nenhuma empresa disponível</h1>
+      <p class="ct-subtitle">Cada empresa tem clientes, catálogo e propostas independentes, e o acesso a cada uma vem dos grupos do seu usuário.</p>
+    </div>
+  </header>
+  <div class="ct-alert">
+    {% if pode_cadastrar %}
+      Nenhuma empresa ativa cadastrada. Cadastre a primeira em <a href="/admin/commercial/empresa/add/">Administração → Empresas</a>.
+    {% else %}
+      Seu usuário ainda não está em um grupo com acesso a alguma empresa. Peça a um administrador para incluir você.
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

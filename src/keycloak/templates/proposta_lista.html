@@ -1,0 +1,95 @@
+{% load custom_filters %}
+<header class="ct-header">
+  <div>
+    <p class="ct-eyebrow">Comercial</p>
+    <h1 class="ct-title">Propostas</h1>
+    <p class="ct-subtitle">
+      {% if ano %}Propostas emitidas em <strong>{{ ano }}</strong> · <a href="?ver={{ visao }}">ver todos os anos</a>. {% endif %}{% if cliente_filtro %}Propostas de <strong>{{ cliente_filtro }}</strong> · <a href="?ver={{ visao }}">ver todos os clientes</a>{% else %}Funil de propostas: do rascunho ao fechamento, com validade, próxima ação e histórico de cada uma.{% endif %}
+    </p>
+  </div>
+  <div class="ct-actions">
+    {% if tem_sharepoint %}
+      <a class="ct-btn" href="/app/sincronizacao/" title="{% if empresa.sincronizado_em %}Última sincronização: {{ empresa.sincronizado_em|date:'d/m/Y H:i' }}{% else %}Nunca sincronizado{% endif %}"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i> SharePoint</a>
+    {% endif %}
+    {% if pode_editar %}<a class="ct-btn ct-btn--primario" href="?novo=1{% if cliente_filtro %}&cliente_novo={{ cliente_filtro.pk }}{% endif %}">+ Nova proposta</a>{% endif %}
+  </div>
+</header>
+
+{% if sem_clientes %}
+  <div class="ct-info">Nenhum cliente cadastrado ainda. Comece em <a href="/app/clientes/?novo=1">Clientes</a> e, se quiser preços de tabela e controle de desconto, cadastre os itens em <a href="/app/catalogo/">Produtos e serviços</a>.</div>
+{% endif %}
+
+<nav class="ct-tabs">
+  {% for chave, rotulo in visoes %}
+    <a class="ct-tab {% if chave == visao %}ct-tab--ativa{% endif %}" href="?ver={{ chave }}{% if parametros %}&{{ parametros }}{% endif %}">{{ rotulo }}</a>
+  {% endfor %}
+</nav>
+
+<form method="get" class="ct-card ct-filters">
+  <input type="hidden" name="ver" value="{{ visao }}">
+  {% if cliente_filtro %}<input type="hidden" name="cliente" value="{{ cliente_filtro.pk }}">{% endif %}
+  {% if ano %}<input type="hidden" name="ano" value="{{ ano }}">{% endif %}
+  <div class="ct-field">
+    <label for="etapa">Etapa</label>
+    <select id="etapa" name="etapa"><option value="">Todas</option>{% for chave, rotulo in etapas %}<option value="{{ chave }}" {% if chave == etapa %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select>
+  </div>
+  <div class="ct-field">
+    <label for="responsavel">Responsável</label>
+    <select id="responsavel" name="responsavel"><option value="">Todos</option>{% for u in responsaveis %}<option value="{{ u.pk }}" {% if u.pk|stringformat:"s" == responsavel %}selected{% endif %}>{{ u|nome_usuario }}</option>{% endfor %}</select>
+  </div>
+  <div class="ct-field" style="flex:1;min-width:220px"><label for="q">Buscar</label><input type="search" id="q" name="q" value="{{ busca }}" placeholder="Número (021/26), título ou cliente"></div>
+  <button class="ct-btn ct-btn--primario">Filtrar</button>
+  <button class="ct-btn" name="exportar" value="xlsx">⬇ Excel</button>
+</form>
+
+<section class="ct-kpis">
+  <div class="ct-kpi"><p class="ct-kpi-label">Valor no filtro</p><p class="ct-kpi-value">{{ total_valor|brl }}</p><p class="ct-kpi-sub">{{ propostas|length }} proposta{{ propostas|length|pluralize }}</p></div>
+  <div class="ct-kpi"><p class="ct-kpi-label">Previsão ponderada</p><p class="ct-kpi-value">{{ total_ponderado|brl }}</p><p class="ct-kpi-sub">valor × probabilidade das abertas</p></div>
+  <div class="ct-kpi"><p class="ct-kpi-label">Ganho no filtro</p><p class="ct-kpi-value ct-pos">{{ ganhas_valor|brl }}</p><p class="ct-kpi-sub">{{ perdidas_qtd }} perdida{{ perdidas_qtd|pluralize }}</p></div>
+</section>
+
+<section class="ct-card ct-card--flush">
+  <div class="ct-table-wrap">
+    <table class="ct-table">
+      <thead>
+        <tr>
+          <th>Número</th><th>Título / cliente</th><th>Etapa</th><th>Responsável</th>
+          <th class="ct-num">Valor</th><th class="ct-num">Prob.</th><th>Validade</th><th>Próxima ação</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in propostas %}
+          <tr class="pc-linha" data-href="?id={{ p.pk }}">
+            <td class="ct-nowrap"><a href="?id={{ p.pk }}"><strong>{{ p.codigo }}</strong></a><span class="ct-sub">{{ p.numero_curto }}{% if p.importada %} · <i class="fa-solid fa-cloud" title="Importada do SharePoint"></i>{% endif %}</span></td>
+            <td><span class="ct-fornecedor">{{ p.titulo }}</span><span class="ct-sub">{{ p.cliente }}{% if p.servico and p.servico|lower != p.titulo|lower %} · {{ p.servico }}{% endif %}</span></td>
+            <td>{% include "etapa_badge.html" %}</td>
+            <td class="ct-nowrap">{{ p.responsavel|nome_usuario }}</td>
+            <td class="ct-num">{{ p.valor_total|brl }}{% if p.desconto > 0 %}<span class="ct-sub">desc. {{ p.desconto|pct }}</span>{% endif %}</td>
+            <td class="ct-num">{% if p.aberta %}{{ p.probabilidade }}%{% else %}—{% endif %}</td>
+            <td class="ct-nowrap">
+              {% if p.com_cliente and p.validade %}
+                <span class="{% if p.validade < hoje %}ct-neg{% endif %}">{{ p.validade|date:"d/m/Y" }}</span>
+              {% elif p.fechada_em %}<span class="ct-sub">fechada {{ p.fechada_em|date:"d/m/Y" }}</span>
+              {% else %}{{ p.validade|date:"d/m/Y"|default:"—" }}{% endif %}
+            </td>
+            <td>
+              {% if p.aberta and p.proxima_acao_em %}
+                <span class="{% if p.proxima_acao_em < hoje %}ct-neg{% elif p.proxima_acao_em == hoje %}pc-hoje{% endif %}">{{ p.proxima_acao_em|date:"d/m" }}</span>
+                <span class="ct-sub">{{ p.proxima_acao|truncatechars:40 }}</span>
+              {% elif p.aberta and p.com_cliente %}<span class="ct-sub ct-neg">sem próxima ação</span>
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="8" class="ct-empty">Nenhuma proposta neste filtro.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+<p class="ct-note">Propostas enviadas ou em negociação expiram sozinhas quando a validade passa. “A acompanhar” mostra as abertas com próxima ação para hoje ou atrasada.</p>
+<script>
+  document.querySelectorAll("tr[data-href]").forEach((tr) => tr.addEventListener("click", (e) => {
+    if (!e.target.closest("a")) window.location = tr.dataset.href;
+  }));
+</script>

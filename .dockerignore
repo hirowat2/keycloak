@@ -1,0 +1,12 @@
+.git
+.venv
+.env
+db.sqlite3
+**/__pycache__
+static
+prof/*.prof
+tests
+documents
+k8s
+data
+*.svg

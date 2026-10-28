@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% load custom_filters %}
+{% block title %}Histórico | CommercialProposal{% endblock %}
+
+{% block main %}
+<div class="ct-page">
+  <header class="ct-header">
+    <div>
+      <p class="ct-eyebrow">Comercial</p>
+      <h1 class="ct-title">Histórico</h1>
+      <p class="ct-subtitle">Propostas ano a ano{% if de %} de {{ de }} a {{ ate }}{% endif %}, pelo ano de emissão: quanto foi proposto e ganho, a conversão, os clientes e as linhas de serviço. Uma proposta de 2019 ganha em 2020 conta em 2019.</p>
+    </div>
+    <a class="ct-btn" href="/app/contratos/">Contratos →</a>
+  </header>
+
+  <form method="get" class="ct-card ct-filters">
+    <div class="ct-field"><label for="de">De</label><select id="de" name="de">{% for a in anos_opcoes %}<option value="{{ a }}" {% if a == de %}selected{% endif %}>{{ a }}</option>{% endfor %}</select></div>
+    <div class="ct-field"><label for="ate">Até</label><select id="ate" name="ate">{% for a in anos_opcoes %}<option value="{{ a }}" {% if a == ate %}selected{% endif %}>{{ a }}</option>{% endfor %}</select></div>
+    <div class="ct-field"><label for="linha">Linha de serviço</label><select id="linha" name="linha"><option value="">Todas</option>{% for l in linhas_opcoes %}<option value="{{ l }}" {% if l == linha %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+    <div class="ct-field" style="flex:1;min-width:200px"><label for="cliente">Cliente</label><input type="search" id="cliente" name="cliente" value="{{ busca }}" placeholder="Nome do cliente"></div>
+    <button class="ct-btn ct-btn--primario">Aplicar</button>
+  </form>
+
+  {% if not total_propostas %}
+    <div class="ct-info">Nenhuma proposta neste filtro. O histórico vem da sincronização com o SharePoint (<a href="/app/sincronizacao/">Sincronização</a>).</div>
+  {% endif %}
+
+  <section class="ct-kpis">
+    <div class="ct-kpi"><p class="ct-kpi-label">Propostas</p><p class="ct-kpi-value">{{ total_propostas }}</p><p class="ct-kpi-sub">{{ anos|length }} ano{{ anos|length|pluralize }}{% if sem_valor %} · {{ sem_valor }} sem valor{% endif %}</p></div>
+    <div class="ct-kpi"><p class="ct-kpi-label">Vendido</p><p class="ct-kpi-value ct-pos">{{ total_ganho|brl }}</p><p class="ct-kpi-sub">{{ total_ganhas }} proposta{{ total_ganhas|pluralize }} ganha{{ total_ganhas|pluralize }}</p></div>
+    <div class="ct-kpi"><p class="ct-kpi-label">Conversão</p><p class="ct-kpi-value">{{ conversao|pct }}</p><p class="ct-kpi-sub">ganhas ÷ decididas (piso: ver nota)</p></div>
+    <div class="ct-kpi"><p class="ct-kpi-label">Clientes atendidos</p><p class="ct-kpi-value">{{ total_clientes }}</p><p class="ct-kpi-sub">{{ recorrentes }} recorrente{{ recorrentes|pluralize }} ({{ pct_recorrentes|pct }}) · em 2+ anos</p></div>
+  </section>
+
+  <section class="ct-grid ct-grid--graficos">
+    <div class="ct-card">
+      <div class="ct-card-head ct-card-head--solto"><h2>Propostas emitidas por ano</h2></div>
+      <ul class="ct-barras">
+        {% for l in por_ano %}
+          <li class="ct-barra-linha">
+            <a class="ct-barra-nome" href="/app/propostas/?ver=todas&ano={{ l.ano }}">{{ l.ano }}</a>
+            <span class="ct-barra-trilho"><span class="ct-barra-preenchida" style="width:{{ l.largura_qtd }}%"></span></span>
+            <span class="ct-barra-valor">{{ l.emitidas }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+    <div class="ct-card">
+      <div class="ct-card-head ct-card-head--solto"><h2>Vendido por ano de emissão</h2></div>
+      <ul class="ct-barras">
+        {% for l in por_ano %}
+          <li class="ct-barra-linha">
+            <span class="ct-barra-nome">{{ l.ano }}</span>
+            <span class="ct-barra-trilho"><span class="ct-barra-preenchida ct-barra-preenchida--entrada" style="width:{{ l.largura_ganho }}%"></span></span>
+            <span class="ct-barra-valor">{{ l.valor_ganho|brl_curto }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </section>
+
+  <section class="ct-card ct-card--flush">
+    <div class="ct-card-head"><h2>Ano a ano</h2></div>
+    <div class="ct-table-wrap">
+      <table class="ct-table">
+        <thead><tr><th>Ano</th><th class="ct-num">Emitidas</th><th class="ct-num">Valor proposto</th><th class="ct-num">Ganhas</th><th class="ct-num">Vendido</th><th class="ct-num">Conversão</th><th class="ct-num">Ticket médio</th><th class="ct-num">Clientes</th><th class="ct-num">Novos</th><th class="ct-num">Arquivos</th><th class="ct-num">Contratuais</th></tr></thead>
+        <tbody>
+          {% for l in por_ano %}
+            <tr>
+              <td><a href="/app/propostas/?ver=todas&ano={{ l.ano }}"><strong>{{ l.ano }}</strong></a></td>
+              <td class="ct-num">{{ l.emitidas }}{% if l.sem_valor %}<span class="ct-sub">{{ l.sem_valor }} sem valor</span>{% endif %}</td>
+              <td class="ct-num">{{ l.valor_proposto|brl }}</td>
+              <td class="ct-num">{{ l.ganhas }}</td>
+              <td class="ct-num">{{ l.valor_ganho|brl }}</td>
+              <td class="ct-num">{{ l.conversao|pct }}</td>
+              <td class="ct-num">{{ l.ticket|brl }}</td>
+              <td class="ct-num">{{ l.clientes }}</td>
+              <td class="ct-num">{{ l.novos_clientes }}</td>
+              <td class="ct-num">{{ l.arquivos }}</td>
+              <td class="ct-num"><a href="/app/contratos/?ano={{ l.ano }}#documentos">{{ l.contratuais }}</a></td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="11" class="ct-empty">Sem dados.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="ct-card ct-card--flush">
+    <div class="ct-card-head"><h2>Clientes ao longo dos anos</h2><span class="ct-note">os 25 com mais propostas · cor mais forte, mais propostas no ano</span></div>
+    <div class="ct-table-wrap">
+      <table class="ct-table hs-matriz">
+        <thead><tr><th>Cliente</th>{% for a in anos %}<th class="ct-num">{{ a|stringformat:"d"|slice:"2:" }}</th>{% endfor %}<th class="ct-num">Total</th><th class="ct-num">Ganhas</th><th class="ct-num">Vendido</th></tr></thead>
+        <tbody>
+          {% for c in clientes %}
+            <tr>
+              <td><a href="/app/propostas/?ver=todas&cliente={{ c.cliente.pk }}">{{ c.cliente }}</a><span class="ct-sub">{{ c.primeiro }}–{{ c.ultimo }} · {{ c.anos_ativos }} ano{{ c.anos_ativos|pluralize }}</span></td>
+              {% for n, nivel in c.celulas %}<td class="ct-num hs-celula hs-nivel-{{ nivel }}">{% if n %}{{ n }}{% endif %}</td>{% endfor %}
+              <td class="ct-num"><strong>{{ c.total }}</strong></td>
+              <td class="ct-num">{{ c.ganhas }}</td>
+              <td class="ct-num">{{ c.valor_ganho|brl }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="ct-card ct-card--flush">
+    <div class="ct-card-head"><h2>Linhas de serviço por ano</h2><span class="ct-note">classificadas pelo título e pelo serviço da proposta</span></div>
+    <div class="ct-table-wrap">
+      <table class="ct-table">
+        <thead><tr><th>Linha</th>{% for a in anos %}<th class="ct-num">{{ a|stringformat:"d"|slice:"2:" }}</th>{% endfor %}<th class="ct-num">Total</th><th class="ct-num">Ganhas</th><th class="ct-num">Vendido</th></tr></thead>
+        <tbody>
+          {% for l in linhas %}
+            <tr>
+              <td><a href="?de={{ de }}&ate={{ ate }}&linha={{ l.linha|urlencode }}{% if busca %}&cliente={{ busca|urlencode }}{% endif %}">{{ l.linha }}</a></td>
+              {% for n in l.anos %}<td class="ct-num">{% if n %}{{ n }}{% else %}<span class="ct-muted">·</span>{% endif %}</td>{% endfor %}
+              <td class="ct-num"><strong>{{ l.total }}</strong></td>
+              <td class="ct-num">{{ l.ganhas }}</td>
+              <td class="ct-num">{{ l.valor_ganho|brl }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <p class="ct-note">Fontes: documentos das propostas no SharePoint (2016–2020 em Propostas_antigas, 2021 em diante em 01 - Propostas) e as planilhas de controle (2021 em diante). Uma proposta só conta como ganha quando há pedido de compra na pasta do cliente ou quando foi marcada no sistema; por isso a conversão histórica é um piso. Propostas sem valor no documento ou só na planilha entram com R$ 0,00.</p>
+</div>
+{% endblock main %}
