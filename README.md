@@ -1,212 +1,181 @@
-# CommercialProposal — Manual do usuário
+# Keycloak + assistente
 
-O CommercialProposal controla as propostas comerciais das empresas do grupo (MBRL, Estatcamp e Estat Analytics), do rascunho ao fechamento. Cada empresa tem clientes, catálogo, numeração e propostas independentes. O sistema guarda os itens com o preço de tabela, pede aprovação quando o desconto passa da alçada, controla validade e próxima ação, mantém o histórico e as revisões de cada proposta, gera o PDF para o cliente e mostra os indicadores de venda no painel.
+Keycloak 26 com Postgres próprio, publicado no Traefik em `https://keycloak.docker.localhost`, e o **assistente**: um app Django que faz pela Admin API os passos do [README_sso.md](README_sso.md) e do [README_migracao_vm.md](README_migracao_vm.md), sem cliques no console. No primeiro boot, o Keycloak cria o realm `automateflow`, que já traz os clients do `mongo/` (`atlas-insights`), do `akamai/` (`linode-insights`) e do `migrate_mongo/` (`mongo-migrator`).
 
-## Sumário
+## Subindo
 
-1. [Acesso](#1-acesso)
-2. [Primeiros passos](#2-primeiros-passos)
-3. [As telas](#3-as-telas)
-4. [O funil de uma proposta](#4-o-funil-de-uma-proposta)
-5. [Criar e editar uma proposta](#5-criar-e-editar-uma-proposta)
-6. [Desconto e aprovação](#6-desconto-e-aprovação)
-7. [Envio, validade e follow-up](#7-envio-validade-e-follow-up)
-8. [Revisões](#8-revisões)
-9. [Fechamento: ganha, perdida ou cancelada](#9-fechamento-ganha-perdida-ou-cancelada)
-10. [Painel e indicadores](#10-painel-e-indicadores)
-11. [Perguntas frequentes](#11-perguntas-frequentes)
-12. [Administração e instalação](#12-administração-e-instalação)
-13. [SharePoint](#13-sharepoint)
-14. [Histórico e contratos](#14-histórico-e-contratos)
+```bash
+make compose     # cria o .env a partir do .env.example, a SECRET_KEY, a rede proxy, e sobe tudo
+make logs
+```
 
----
+| Serviço | Função |
+|---|---|
+| `keycloak` | Keycloak em modo `start` (produção), HTTP na 8080 atrás do Traefik, health/metrics na 9000. Na rede `proxy`, os outros apps o alcançam como `http://keycloak:8080` |
+| `keycloak-db` | Postgres 17 do Keycloak, no volume `keycloak-db`, só na rede da stack |
+| `assistente` | O assistente, em `https://keycloak-assistente.docker.localhost` (`ASSISTENTE_HOST`) |
+| `assistente-db` | Postgres 17 do assistente (sessões e histórico), no volume `assistente-db` |
+| `reverse-proxy` | Traefik 3 com `~/.traefik` e `~/.certs`; **só sobe se nenhum container estiver publicando a porta 443** (profile `traefik`) |
 
-## 1. Acesso
+| Onde | Quem entra |
+|---|---|
+| Console do Keycloak: `https://keycloak.docker.localhost/admin` | o admin do realm **master** (`KC_ADMIN_USER`/`KC_ADMIN_PASSWORD`) |
+| Assistente: `https://keycloak-assistente.docker.localhost` | um usuário do realm `KC_REALM` com e-mail liberado (veja [Acesso ao assistente](#acesso-ao-assistente)). Localmente, o `KC_REALM_ADMIN_USER`/`KC_REALM_ADMIN_PASSWORD` |
 
-Entre pelo endereço do sistema e clique em **Entrar com a conta corporativa**. O login é feito pela conta da empresa (Keycloak). Só entram os e-mails liberados no código (veja [documents/controle_de_acesso.md](documents/controle_de_acesso.md)).
+Outros alvos: `make down`, `make ps`, `make realm-export`, `make reset` e `make test`.
 
-Você vê as empresas liberadas para os seus grupos, e em cada uma tem um papel. O menu lateral e os botões mostram só o que esse papel permite:
+## O assistente
 
-| Papel | O que pode fazer |
-| --- | --- |
-| **Limited** | Consultar painel, propostas (inclusive PDF e Excel), clientes e catálogo |
-| **Tech** (vendedor) | Tudo do Limited, mais cadastrar clientes e criar, enviar, acompanhar e fechar propostas |
-| **Master** (gestor) | Tudo do Tech, mais aprovar descontos acima da alçada e manter o catálogo de preços |
-| **Admin** | Tudo, em todas as empresas, mais a área de Administração |
+Cada etapa é um formulário que vale para o realm escolhido no menu lateral. **Simular** mostra o plano (o que será criado, atualizado ou removido) sem gravar nada; **Aplicar** grava no Keycloak. Rodar de novo uma etapa já aplicada não duplica nada: o plano sai com 0 mudanças. Toda simulação e aplicação fica no **Histórico**, com quem fez e o plano completo.
 
-O papel pode mudar de uma empresa para outra. Com acesso a mais de uma, troque a empresa no seletor do menu lateral.
+| Tela | O que faz | Guia |
+|---|---|---|
+| **Painel** | Versão do Keycloak, realms, andamento das etapas do realm ativo e as últimas ações | |
+| **1 · Realm e apps** | Cria ou acerta o realm (SSL, cadastro e "esqueci a senha" desligados, login com e-mail, pt-BR, força bruta), a role `ADMIN`, um client OIDC público com PKCE `S256` por app e uma role de acesso com o nome de cada client | SSO 1.1–1.7, 3.1 |
+| **2 · Grupos e roles** | Matriz grupo × role, já preenchida com a estrutura sugerida (`<realm>-admins` e um grupo por app) | SSO 3.2 |
+| **3 · SSO corporativo** | URLs para o time do SSO (Entity ID, ACS, metadata do SP) com botão de copiar, roteiro do Entra/Google/Okta, e o provedor SAML cadastrado a partir da URL ou do XML de metadata, com assinaturas, `Sync mode Force`, os mappers de e-mail, nome, sobrenome e username e, se quiser, o login direto pelo SSO | SSO 2 |
+| **4 · Grupos do SSO** | Um mapper *Advanced Attribute to Group* por grupo (Key `groups` ou o URI longo do Entra; Value com o nome ou o GUID do grupo) | SSO 4.4 |
+| **5 · Conferir** | Checklist do realm contra o guia, roles efetivas e vínculo com o SSO de um usuário, `.env` de cada app e o **JSON para versionar** (sem usuários, ids, secrets nem chaves) | SSO 1.8, 3.3, 4.5 |
+| **Migração da VM** | Comandos prontos para a VM e o destino, troca do host antigo (Frontend URL e URLs dos clients) e usuários sem e-mail ou nome | Migração |
+| **Histórico** | Cada simulação e aplicação, com filtro por realm | |
 
-## 2. Primeiros passos
+O que acontece **dentro do SSO** (criar a aplicação SAML, os grupos e o claim de grupos no Entra, no Google ou no Okta) continua sendo feito no portal de cada um. A tela 3 mostra o roteiro.
 
-1. Um **Admin** confere a empresa em *Administração → Empresas*: razão social, CNPJ, endereço e contatos (saem no PDF), **prefixo da numeração**, **validade padrão**, **desconto máximo sem aprovação**, condições de pagamento padrão e **termos e condições gerais**.
-2. Um **Master** cadastra os produtos e serviços em **Produtos e serviços**, com o preço de tabela.
-3. Cadastre os **clientes** e seus contatos.
-4. Crie a primeira **proposta** e acompanhe o **painel**.
+### Acesso ao assistente
 
-## 3. As telas
+O login segue o padrão dos apps: `keycloak.js` no client `keycloak-assistente` do realm `KC_REALM`, com o token validado em [src/system/sso.py](src/system/sso.py).
 
-| Tela | Para que serve |
-| --- | --- |
-| **Painel comercial** | Pipeline, previsão ponderada, vendido no período, conversão, ticket médio, ciclo de venda, funil, motivos de perda, resultado por responsável e alertas (aprovação pendente, follow-up atrasado, propostas vencendo) |
-| **Propostas** | Lista do funil com filtros (etapa, responsável, busca por número, título ou cliente) e exportação para Excel. Clique numa linha para abrir o detalhe |
-| **Clientes** | Contas e contatos, com quantas propostas cada cliente tem e quanto já comprou. Clientes com histórico são inativados, nunca apagados |
-| **Produtos e serviços** | Catálogo com preço de tabela, a referência dos descontos |
+- Só entram os e-mails de `EMAILS_PERMITIDOS`, fixos no código. Com `DEBUG` ligado (compose), entra também o `admin@automateflow.local` (o `KC_REALM_ADMIN_USER` do JSON).
+- Quem tem a role de realm **`ADMIN`** fica no grupo *Admin*: simula, aplica e acessa o `/admin/` do Django. Os demais ficam no *Limited*: veem tudo e simulam, mas não aplicam.
+- O client `keycloak-assistente` é criado (ou acertado) pelo entrypoint (`manage.py preparar_login`), porque um realm importado antes não o tem.
+- Na Admin API, o assistente usa o admin do master (`KEYCLOAK_ADMIN_USER`/`KEYCLOAK_ADMIN_PASSWORD`, que no compose vêm de `KC_ADMIN_USER`/`KC_ADMIN_PASSWORD`). Se a senha desse admin for trocada no console, troque também no `.env`/`secrets.env`, ou o assistente mostra "O Keycloak não respondeu". Para não usar senha, crie no master um client com service account e role `admin` e passe `KEYCLOAK_ADMIN_CLIENT_ID`/`KEYCLOAK_ADMIN_CLIENT_SECRET`.
 
-## 4. O funil de uma proposta
+Para configurar outro Keycloak (ex.: o de produção) a partir da sua máquina, rode o assistente apontando para ele: `KEYCLOAK_HOST` e `KEYCLOAK_INTERNAL_URL` com a URL pública e as credenciais do admin do master.
+
+### Código
 
 ```text
-Rascunho ──► (Em aprovação ──► Aprovada) ──► Enviada ──► Em negociação ──► Ganha
-   ▲              │ devolvida                   │               │
-   │              ▼                             ├───────────────┴──► Perdida (com motivo)
-   └──── Criar revisão ◄────────────────────────┤
-                                                └── validade vencida ──► Expirada
-Qualquer etapa aberta ──► Cancelada
+src/
+├── system/                  # projeto Django: settings, URLs, login (sso.py)
+└── keycloak/                # o app
+    ├── automacao/           # Admin API e as etapas, sem Django (dá para usar num script)
+    │   ├── api.py           #   cliente da Admin REST API (token do master)
+    │   ├── plano.py         #   Plano/Passo: simular x aplicar, diff
+    │   ├── realm.py         #   etapa 1
+    │   ├── grupos.py        #   etapa 2
+    │   ├── saml.py          #   etapas 3 e 4
+    │   ├── conferir.py      #   etapa 5 e export
+    │   ├── manutencao.py    #   host novo e usuários incompletos
+    │   └── web.py           #   utilitários das telas (realm ativo, permissões, histórico)
+    ├── screens/<tela>/view.py   # uma pasta por tela; o menu fica em screens/config/aside.py
+    ├── templates/<tela>.html
+    └── management/commands/preparar_login.py
+scripts/exportar_vm.sh       # roda na VM antiga (migração)
 ```
 
-| Etapa | Probabilidade sugerida | Observação |
-| --- | --- | --- |
-| Rascunho | 10% | Única etapa editável |
-| Em aprovação | 10% | Desconto acima da alçada, esperando um Master |
-| Aprovada internamente | 20% | Pronta para enviar |
-| Enviada ao cliente | 40% | Conta no pipeline e expira na validade |
-| Em negociação | 60% | Conta no pipeline e expira na validade |
-| Ganha | 100% | Entra no vendido do painel |
-| Perdida / Expirada / Cancelada | 0% | Fechadas |
-
-A probabilidade muda sozinha com a etapa; o vendedor pode ajustá-la no rascunho se souber mais.
-
-## 5. Criar e editar uma proposta
-
-Em **Propostas → + Nova proposta** (ou **+ Proposta** na lista de clientes):
-
-- **Cliente, contato, responsável e origem** (indicação, site, prospecção, evento, cliente da base, parceiro).
-- **Condições:** validade (sugerida pela empresa), condições de pagamento, prazo de entrega e o texto de **apresentação e escopo**, que sai no PDF antes dos itens.
-- **Acompanhamento:** probabilidade, previsão de fechamento, **próxima ação** e data, e observações internas (não saem no PDF).
-- **Itens:** escolha um item do catálogo (descrição, unidade e preço vêm dele) ou digite um item avulso. Informe quantidade, preço unitário e desconto da linha. O total e o aviso de desconto acima da alçada aparecem enquanto você digita. Valores aceitam o formato brasileiro (`1.234,56`).
-
-A proposta recebe o número na hora de salvar: `<prefixo>-<ano>-<sequência>`, por exemplo `EST-2026-0007`. A sequência é por empresa e recomeça a cada ano.
-
-**Duplicar** cria uma proposta nova (outro número, rascunho) com os mesmos dados e itens. Use para propostas parecidas ou para reaproveitar uma perdida.
-
-## 6. Desconto e aprovação
-
-O desconto é medido sobre o **preço de tabela** do catálogo, não sobre o preço digitado: baixar o preço unitário conta como desconto, assim como o desconto da linha. Itens avulsos (sem catálogo) usam o próprio preço como referência.
-
-- Até o **desconto máximo** da empresa, o vendedor envia direto.
-- Acima dele, o botão **Marcar como enviada** dá lugar a **Pedir aprovação**. Um Master **aprova** (a proposta fica *Aprovada internamente* e pode ser enviada) ou **devolve ao rascunho**.
-- O preço de tabela é copiado para a proposta quando o item entra. Mudar o catálogo depois não altera propostas já feitas.
-
-## 7. Envio, validade e follow-up
-
-- **Imprimir** abre a proposta pronta para imprimir; **PDF** gera o arquivo para enviar ao cliente. Os dois trazem dados da empresa, cliente, escopo, itens, condições, validade, termos e campo de aceite. Preço de tabela e observações internas não aparecem.
-- **Marcar como enviada** registra a data de envio. Se a validade estiver vazia ou vencida, ela é renovada pela validade padrão da empresa.
-- Propostas enviadas ou em negociação cuja validade passou viram **Expirada** sozinhas (ao abrir as telas e pelo comando `expirar_propostas`).
-- No detalhe, **Acompanhamento** registra anotações e a **próxima ação** com data. O painel lista follow-ups atrasados, propostas que vencem em até 7 dias e propostas com o cliente sem próxima ação. A visão **A acompanhar** da lista mostra as próximas ações de hoje e as atrasadas.
-
-## 8. Revisões
-
-Depois que sai do rascunho, a proposta não é mais editada. Para mudar preço, itens ou condições, use **Criar revisão** (disponível também para propostas expiradas):
-
-- a versão atual (cliente, itens, valores, condições) fica guardada em **Revisões anteriores**, com o motivo informado;
-- a proposta volta ao rascunho com o código seguinte: `EST-2026-0007-R1`, `-R2`…;
-- aprovação e data de envio são zeradas, e o fluxo recomeça.
-
-## 9. Fechamento: ganha, perdida ou cancelada
-
-- **Ganha:** registra a data e um comentário (pedido, contrato, fator decisivo).
-- **Perdida:** exige o **motivo** (preço, concorrente, prazo, escopo, sem orçamento, projeto adiado, sem resposta, outro) e aceita o concorrente que ganhou e o que aprendemos. Os motivos alimentam o painel.
-- **Cancelada:** decisão interna (proposta feita por engano, oportunidade que deixou de existir). Não conta na conversão.
-
-Todo fechamento limpa a próxima ação. Cada mudança de etapa, edição, revisão e anotação fica no **histórico** da proposta, com data e usuário.
-
-## 10. Painel e indicadores
-
-Filtre por período de fechamento e por responsável.
-
-| Indicador | Cálculo |
-| --- | --- |
-| Pipeline com clientes | Soma das propostas enviadas e em negociação (hoje) |
-| Previsão ponderada | Soma de valor × probabilidade de todas as abertas (hoje) |
-| Vendido no período | Soma das ganhas com fechamento no período |
-| Taxa de conversão | Ganhas ÷ (ganhas + perdidas + expiradas) fechadas no período, em quantidade e em valor. Canceladas ficam de fora |
-| Ticket médio | Vendido ÷ quantidade de ganhas |
-| Ciclo de venda | Média de dias entre o envio e o ganho |
-
-## 11. Perguntas frequentes
-
-**Errei o valor de uma proposta já enviada. Edito?** Não: crie uma revisão. A versão enviada fica guardada para consulta.
-
-**Por que não consigo enviar?** O desconto passou do limite da empresa (peça aprovação) ou a proposta não tem itens.
-
-**O cliente voltou depois da validade.** Abra a proposta expirada e use **Criar revisão**; ao enviar de novo, a validade é renovada.
-
-**Como apago um cliente?** Clientes com propostas não são apagados, para não perder o histórico: inative-os. Um Admin pode apagar pelo `/admin/` um cliente sem propostas.
-
-**Posso mudar o número de uma proposta?** Não. A numeração é sequencial por empresa e ano; mudanças depois do envio geram revisões (`-R1`, `-R2`…) do mesmo número.
-
-## 12. Administração e instalação
-
-Esta seção é para quem instala e mantém o sistema.
-
-### Subir o ambiente
+### Testes
 
 ```bash
-make compose            # ou: docker compose up -d
+make test                                                                       # unitários
+KEYCLOAK_TESTE_URL=https://keycloak.docker.localhost KEYCLOAK_VERIFY_TLS=false make test   # + integração
 ```
 
-Ao iniciar, o container `commercialproposal` roda as migrações, cria as empresas do grupo que faltarem (`configurar_empresas`) e expira as propostas vencidas. Endereços locais: sistema em `https://propostas.docker.localhost`, Keycloak em `https://keycloak-propostas.docker.localhost` (importa o realm `commercialproposal` de `data/keycloak/realm/`) e Adminer em `https://adminer-propostas.docker.localhost`.
+Com `KEYCLOAK_TESTE_URL`, [tests/test_integracao.py](tests/test_integracao.py) percorre as cinco etapas e a troca de host pelas telas, contra o Keycloak de verdade, num realm descartável que é apagado no fim. Ele confere também que reaplicar não muda nada e que o perfil Limited não grava.
 
-Os serviços têm o prefixo `propostas-` e o banco fica só na rede interna da stack. A rede `proxy` é compartilhada com outros sistemas (como o CostManage); nomes iguais nela se misturam no DNS do Docker. Com as duas stacks no ar, basta um Traefik (`reverse-proxy`), porque ele enxerga os containers de todas.
+## Realm `automateflow`
 
-### Empresas e acessos
+O arquivo [realm/automateflow-realm.json](realm/automateflow-realm.json) é importado com `--import-realm`, mas **só quando o realm ainda não existe** no banco. Os `${...}` do arquivo vêm das variáveis de ambiente do container. Ele contém:
 
-Em **Administração → Empresas**, além dos dados impressos e das regras comerciais (seção 2), a lista **Grupos com acesso** dá aos membros de um grupo um papel (Limited, Tech ou Master) na empresa. Quem está em mais de um grupo com acesso fica com o maior papel. O grupo **Admin** e os superusuários veem todas as empresas. Desmarcar **Ativa** esconde a empresa de todos, sem apagar dados.
+- role de realm `ADMIN`, que vira superuser nos apps (`KEYCLOAK_ADMIN_ROLE`);
+- usuário `KC_REALM_ADMIN_USER`/`KC_REALM_ADMIN_PASSWORD`, com a role `ADMIN`;
+- clients públicos com PKCE (`S256`): `atlas-insights`, `linode-insights` e `mongo-migrator`. Os redirects são `<URL>/oidc/callback/`, em que a URL vem de `ATLAS_INSIGHTS_URL`, `LINODE_INSIGHTS_URL` e `MONGO_MIGRATOR_URL`.
 
-O admin do Django também permite correções pontuais em propostas (texto, itens). Etapa, numeração e aprovação só mudam pelo sistema, que registra o histórico; criar propostas pelo admin está bloqueado.
+Para mudar o realm:
 
-### Comandos úteis
+- **Pelo assistente ou pelo console**: as mudanças ficam no banco. Para versionar, use **5 · Conferir → JSON para versionar** (ou `make realm-export`, que grava o realm completo em `./export/`, no `.gitignore` porque contém hashes de senha) e copie para `realm/` o que quiser versionar.
+- **Pelo JSON**: edite `realm/*.json` e rode `make reset`. **Atenção:** o `reset` apaga os bancos inteiros (usuários, sessões, o que foi feito no console e o histórico do assistente).
 
-Rode dentro do container (`docker compose exec commercialproposal poetry run python src/manage.py <comando>`):
+## Usando nos apps (`mongo/`, `akamai/`)
 
-| Comando | O que faz |
-| --- | --- |
-| `configurar_empresas` | Cria as empresas do grupo que faltam e o acesso dos grupos de papel (não altera o que já existe) |
-| `expirar_propostas [--empresa <slug>]` | Marca como expiradas as propostas com validade vencida; bom para agendar diariamente |
-| `anexar_documento <link> [--tipo cartao_cnpj] [--empresa <slug>]` | Anexa à empresa um documento do SharePoint pelo link de compartilhamento (ex.: cartão CNPJ); do cartão, preenche CNPJ, razão social, endereço e telefone em branco |
-| `sincronizar_sharepoint [--empresa <slug>] [--simular]` | Importa e atualiza as propostas da biblioteca do SharePoint (seção 13); `--simular` mostra o resultado sem gravar |
-
-### Desenvolvimento
+Os apps apontam por padrão para o realm `pseudo658`. Para usar este Keycloak, coloque no `.env` de cada app o trecho que a tela **5 · Conferir** monta, ou:
 
 ```bash
-make install            # dependências (inclui as de desenvolvimento)
-make test               # pytest; precisa de SECRET_KEY no ambiente ou no .env
+KEYCLOAK_HOST=https://keycloak.docker.localhost/
+KEYCLOAK_INTERNAL_URL=http://keycloak:8080
+KEYCLOAK_REALM=automateflow
+KEYCLOAK_REQUIRED_ROLE=atlas-insights   # sem ela, qualquer usuário do realm entra no app
 ```
 
-### Onde está cada coisa
+Como os clients já vêm no realm, não é preciso rodar o `make keycloak-client` dos apps. Se rodar, passe a senha do admin do master: `make keycloak-client KC_ADMIN_PASSWORD=...`.
 
-- Regras de negócio: `src/commercial/propostas/` (`models.py`, `servicos.py` com o funil, `indicadores.py` com o painel)
-- Telas: `src/commercial/screens/<tela>/view.py` e `src/commercial/templates/<tela>.html`
-- Menu: `src/commercial/screens/config/aside.py`
-- Login e lista de e-mails: `src/proposal/sso.py`
-- Estilos: `media/css/app.css` (moldura) e `media/css/ui.css` (telas)
-- Regras e decisões de negócio: [documents/propostas.md](documents/propostas.md)
-- Mapa do SharePoint e regras da sincronização: [documents/sharepoint.md](documents/sharepoint.md)
-- Testes: `tests/`
+**Conflito com o pseudo658:** o Keycloak do pseudo658 usa o mesmo host (`keycloak.docker.localhost`), o mesmo hostname (`keycloak`) e o mesmo router no Traefik. Suba só um dos dois. Se precisar dos dois ao mesmo tempo, troque `KC_HOST` aqui e o nome do router nas labels do `docker-compose.yml`. Nos apps, aponte `KEYCLOAK_INTERNAL_URL` para o nome do container (`http://keycloak-keycloak-1:8080`).
 
-## 13. SharePoint
+## Migração de uma VM
 
-As propostas feitas em Word na biblioteca do SharePoint (`01 - Propostas/<ano>/<cliente>/Proposta 021 26.docx`) são importadas para o sistema, com o número original, cliente, contato, valor, validade e a lista de arquivos (versões e pedidos de compra), cada um com link para o SharePoint. Propostas com pedido de compra na pasta entram como **ganhas**; as demais com validade vencida, como **expiradas**.
+Para trazer os realms de um Keycloak que roda em outra VM:
 
-- **Automática:** o container sincroniza ao subir e depois a cada `SHAREPOINT_INTERVALO_MINUTOS` (padrão 60; 0 desliga).
-- **Tela Sincronização** (menu *Integração e ajuda*): configuração da empresa, **Testar conexão**, **Simular**, **Sincronizar agora** (papel Master) e o histórico de cada rodada com avisos e conflitos. Também pelo comando `sincronizar_sharepoint`. A primeira vez leva alguns minutos; depois, só o que mudou é baixado. Só uma rodada por empresa roda de cada vez.
-- **O que não é desfeito:** etapas decididas no sistema (negociação, ganha, perdida, cancelada) e itens editados aqui.
-- **Numeração:** propostas novas no sistema continuam a sequência do ano. Use o número gerado (ex.: `035/26`) no nome do arquivo do SharePoint; um número usado pelos dois lados aparece como conflito no relatório.
-- **Configuração:** *Administração → Empresas → SharePoint* (site, pastas e primeiro ano) e as variáveis `SHAREPOINT_TENANT_ID`, `SHAREPOINT_CLIENT_ID` e `SHAREPOINT_CLIENT_SECRET` no `.env` (ou no Secret do Kubernetes).
+```bash
+scp scripts/exportar_vm.sh usuario@vm: && ssh usuario@vm sh exportar_vm.sh <container-do-keycloak>
+scp usuario@vm:kc-export.tgz .  && make importar-realms     # se saiu kc-export.tgz (caminho A)
+scp usuario@vm:keycloak.dump .  && make restaurar-dump      # se saiu keycloak.dump (caminho B: apaga o banco daqui)
+```
 
-Detalhes, o mapa da biblioteca e os próximos passos em [documents/sharepoint.md](documents/sharepoint.md). A tela **Metodologia** explica o sistema inteiro com diagramas e o passo a passo ilustrado; os prints são gerados por `documents/prints/capturar.cjs` (Playwright).
+O script descobre sozinho se a VM usa H2 ou Postgres. No cluster, use `make k8s-importar-realms` / `make k8s-restaurar-dump`. Depois, termine na tela **Migração da VM**. O passo a passo explicado, com figuras, está no [README_migracao_vm.md](README_migracao_vm.md).
 
-## 14. Histórico e contratos
+## Deploy no Kubernetes
 
-- **Histórico** (menu *Comercial*): propostas de 2016 em diante, ano a ano pelo ano de emissão. Mostra emitidas, valor proposto, ganhas, vendido, conversão, ticket médio, clientes, clientes novos e documentos. Inclui a matriz **clientes × anos** (os 25 com mais propostas) e as **linhas de serviço por ano**. Filtros: período, linha de serviço e cliente. O histórico de 2016–2020 vem de `Propostas_antigas`; de 2021 em diante, de `01 - Propostas` e das planilhas de controle.
-- **Contratos**: propostas fechadas (ganhas) com os pedidos de compra e contratos de cada uma, um resumo por ano e o **acervo** do SharePoint. O acervo cataloga todos os arquivos das pastas de clientes e das pastas de contratos, classificados pelo nome: proposta, pedido de compra, contrato, NDA, cadastro de fornecedor, fiscal, dados e outros.
-- **Documentos da empresa**: o cartão CNPJ e outros documentos ficam anexados à empresa e aparecem em *Contratos*. Para anexar, use *Administração → Empresas* ou o comando `anexar_documento`. Com o link do SharePoint, a sincronização baixa de novo o arquivo quando ele muda. O sistema avisa quando o cartão CNPJ tem mais de 90 dias, prazo que cadastros de fornecedor costumam exigir.
+Os manifests ficam em [k8s/](k8s/) e são montados pelo [kustomization.yaml](kustomization.yaml). Ele fica na raiz porque o kustomize não lê arquivos acima dela, e precisa empacotar o mesmo `realm/automateflow-realm.json` usado no compose.
+
+```bash
+make build         # imagem estat/keycloak-assistente (precisa do GITHUB_PAT); publique no registry
+make k8s-secrets   # cria k8s/secrets.env a partir do exemplo; troque as senhas
+make k8s-apply     # kubectl apply -k . no contexto atual + espera o rollout
+make k8s-status    # pods, svc, ingress e pvc
+make k8s-logs
+make k8s-render    # só mostra o YAML final
+```
+
+Tudo vai para o namespace `keycloak`:
+
+| Recurso | Função |
+|---|---|
+| `Deployment/keycloak` | Keycloak 26 em modo `start`, com probes em `/health/*` na porta 9000. O realm é montado de um ConfigMap e importado com `--import-realm`. Para escalar, basta aumentar `replicas`: os pods se descobrem pelo banco (JDBC_PING) |
+| `StatefulSet/keycloak-db` | Postgres 17 com PVC de 10Gi na StorageClass padrão do cluster |
+| `Deployment/assistente` | O assistente (`estat/keycloak-assistente`), com o histórico num SQLite no PVC `assistente-data` (1 réplica). Fala com o Keycloak pelo Service `http://keycloak:8080` |
+| `Ingress/keycloak`, `Ingress/assistente` | Traefik no entrypoint `websecure`, com `certresolver: default` (mesmo padrão do `akamai.yaml`). Só HTTPS |
+| `ConfigMap/keycloak-config` | gerado de [k8s/config.env](k8s/config.env): hosts, realm e URLs dos apps (versionado) |
+| `Secret/keycloak-secrets` | gerado de `k8s/secrets.env` (no `.gitignore`): admin do master, usuário do banco, senha do admin do realm e a `SECRET_KEY` do assistente |
+
+Os hosts públicos ficam só em `KC_HOSTNAME` e `ASSISTENTE_HOSTNAME` (`k8s/config.env`). O kustomize copia esses valores para os Ingress. Os ConfigMaps e o Secret ganham um hash no nome, então mudar `config.env` ou `secrets.env` e rodar `make k8s-apply` reinicia os pods sozinho.
+
+Como no compose, as senhas do admin do master e do Postgres só valem no primeiro boot, com o volume vazio. Depois disso, trocá-las no `secrets.env` não altera o banco. A exceção é o assistente, que lê a senha do admin do master desse Secret: se ela mudar no console, atualize o `secrets.env`.
+
+Nos apps do cluster:
+
+```yaml
+- name: KEYCLOAK_HOST
+  value: https://keycloak.actionstat.app/
+- name: KEYCLOAK_INTERNAL_URL        # back-channel sem sair do cluster
+  value: http://keycloak.keycloak.svc.cluster.local:8080
+- name: KEYCLOAK_REALM
+  value: automateflow
+```
+
+`make k8s-delete` apaga o namespace inteiro, **inclusive os PVCs** do banco e do assistente.
+
+## Variáveis
+
+| Variável | Descrição |
+|---|---|
+| `KC_HOST` | host público do Keycloak no Traefik (padrão `keycloak.docker.localhost`) |
+| `KC_ADMIN_USER` / `KC_ADMIN_PASSWORD` | admin do realm master. Só valem no primeiro boot; depois, a senha é trocada pelo console. O assistente usa os mesmos na Admin API |
+| `KC_DB_NAME` / `KC_DB_USER` / `KC_DB_PASSWORD` | Postgres do Keycloak |
+| `KC_REALM` | nome do realm importado (padrão `automateflow`); é também o realm do login no assistente |
+| `KC_REALM_ADMIN_USER` / `KC_REALM_ADMIN_PASSWORD` | usuário com a role `ADMIN` criado no realm |
+| `ATLAS_INSIGHTS_URL` / `LINODE_INSIGHTS_URL` / `MONGO_MIGRATOR_URL` | URLs públicas dos apps, usadas nos redirect URIs |
+| `KC_LOG_LEVEL` | `info` (padrão), `debug`, `warn`… |
+| `ASSISTENTE_HOST` | host público do assistente (padrão `keycloak-assistente.docker.localhost`) |
+| `ASSISTENTE_DB_PASSWORD` | Postgres do assistente |
+| `SECRET_KEY` | do Django do assistente (criada pelo `make secret`) |
+| `KEYCLOAK_ADMIN_CLIENT_ID` / `KEYCLOAK_ADMIN_CLIENT_SECRET` | opcional: service account do master no lugar do usuário e senha |
+| `KEYCLOAK_VERIFY_TLS` | `false` para aceitar certificado próprio ao rodar o assistente fora do Docker contra o host HTTPS |

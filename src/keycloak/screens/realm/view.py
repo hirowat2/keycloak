@@ -5,7 +5,7 @@ from django import forms
 from django.forms import formset_factory
 
 from keycloak.automacao import realm as servico
-from keycloak.automacao.web import api, com_realm, executar
+from keycloak.automacao.web import api, com_realm, executar, realms_disponiveis
 from keycloak.models import Aplicacao
 
 
@@ -60,8 +60,9 @@ def view(context, request, realm) -> dict[str, Any]:
                 lambda simular: servico.aplicar(api(), nome, form.cleaned_data["nome_exibicao"], lista, simular),
             )
             if plano is not None and not plano.simular:
+                # O menu já mostra o realm novo, selecionado
                 request.session["realm"] = nome
-                context["realm"] = nome
+                context.update({"realm": nome, "realms": realms_disponiveis()})
             novo = novo and not (plano and not plano.simular)
     elif novo:
         form, apps = RealmForm(), AppFormSet(prefix="apps")

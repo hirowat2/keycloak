@@ -1,4 +1,4 @@
-# Deploy do Keycloak no Kubernetes (manifests em k8s/).
+# Deploy do Keycloak e do assistente no Kubernetes (manifests em k8s/).
 #
 #   cp k8s/secrets.env.example k8s/secrets.env   # preencha as senhas
 #   kubectl apply -k .                            # ou: make k8s-apply
@@ -14,9 +14,10 @@ resources:
   - k8s/namespace.yaml
   - k8s/postgres.yaml
   - k8s/keycloak.yaml
+  - k8s/assistente.yaml
 
 configMapGenerator:
-  # Configuração não sensível (host, realm, URLs dos apps)
+  # Configuração não sensível (hosts, realm, URLs dos apps)
   - name: keycloak-config
     envs:
       - k8s/config.env
@@ -30,7 +31,7 @@ secretGenerator:
     envs:
       - k8s/secrets.env
 
-# O host público fica só em config.env: daqui ele vai para o Ingress
+# Os hosts públicos ficam só em config.env: daqui eles vão para os Ingress
 replacements:
   - source:
       kind: ConfigMap
@@ -40,5 +41,15 @@ replacements:
       - select:
           kind: Ingress
           name: keycloak
+        fieldPaths:
+          - spec.rules.0.host
+  - source:
+      kind: ConfigMap
+      name: keycloak-config
+      fieldPath: data.ASSISTENTE_HOSTNAME
+    targets:
+      - select:
+          kind: Ingress
+          name: assistente
         fieldPaths:
           - spec.rules.0.host

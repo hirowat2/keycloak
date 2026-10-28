@@ -41,7 +41,7 @@ services:
       - traefik.enable=true
       - traefik.docker.network=proxy
       - traefik.http.routers.keycloak-assistente.tls=true
-      - traefik.http.routers.keycloak-assistente.rule=Host(`${ASSISTENTE_HOST:-keycloak-assistente.docker.localhost}`)
+      - traefik.http.routers.keycloak-assistente.rule=Host(`keycloak-assistente.docker.localhost`)
     volumes:
       - ./src:/usr/src/src
       - ./media:/usr/src/media

@@ -1,4 +1,4 @@
-/* Componentes das telas (ct-*) e das propostas (pc-*). Tokens de cor no :root, com variante html.dark. */
+/* Componentes das telas (ct-*). Tokens de cor no :root, com variante html.dark. */
 
 :root {
     --ct-bg: #f5f6f8;
@@ -364,114 +364,16 @@ html.dark {
 .ct-btn--perigo { color: var(--ct-neg); }
 .ct-table--compacta td, .ct-table--compacta th { padding: 5px 8px; }
 
-/* ------------------------------------------------ propostas */
+/* ------------------------------------------------ formulários */
 .ct-page textarea, .ct-page input[type="email"], .ct-page input[type="url"] {
     font: inherit; font-size: 13px; padding: 6px 10px; border: 1px solid var(--ct-border); border-radius: 8px;
     background: var(--ct-surface); color: var(--ct-text);
 }
 .ct-page textarea { resize: vertical; min-height: 34px; }
 .ct-page input[type="email"], .ct-page input[type="url"] { height: 36px; padding: 0 10px; }
-.pc-inline { display: inline; }
-.pc-acoes { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
-.pc-linha { cursor: pointer; }
-.pc-linha:hover td { background: color-mix(in srgb, var(--ct-accent) 6%, transparent); }
-.pc-hoje { color: var(--ct-warn); font-weight: 600; }
-
-/* Etapas do funil: neutras enquanto internas, azul com o cliente, verde ganha, vermelho perdida. */
-.pc-etapa--rascunho, .pc-etapa--cancelada { background: var(--ct-muted); color: var(--ct-text-2); }
-.pc-etapa--em_aprovacao { background: var(--ct-warn-bg); color: var(--ct-warn); }
-.pc-etapa--aprovada { background: var(--ct-accent-soft); color: var(--ct-accent); }
-.pc-etapa--enviada, .pc-etapa--negociacao { background: var(--ct-info-bg); color: #1d4f91; }
-.pc-etapa--ganha { background: var(--ct-accent-soft); color: var(--ct-pos); }
-.pc-etapa--perdida, .pc-etapa--expirada { background: #fde8e7; color: #a4221b; }
-.pc-etapa--cancelada { text-decoration: line-through; }
-html.dark .pc-etapa--enviada, html.dark .pc-etapa--negociacao { color: #8cb8f5; }
-html.dark .pc-etapa--perdida, html.dark .pc-etapa--expirada { background: #3a1716; color: #f79c95; }
-.pc-barra--rascunho, .pc-barra--em_aprovacao, .pc-barra--aprovada { background: var(--ct-serie-outros); }
-.pc-barra--enviada { background: var(--ct-serie-1); }
-.pc-barra--negociacao { background: var(--ct-serie-3); }
-
-/* Itens no formulário: campos compactos, linha marcada para remover fica apagada. */
-.pc-itens td { vertical-align: top; }
-.pc-itens input, .pc-itens select, .pc-itens textarea { width: 100%; box-sizing: border-box; }
-.pc-itens .pc-curto { width: 80px; }
-.pc-itens .pc-medio { width: 120px; }
-.pc-itens .pc-curto input, .pc-itens .pc-medio input { text-align: right; }
-.pc-item-removido td { opacity: 0.45; text-decoration: line-through; }
-.pc-detalhes summary { margin-top: 4px; }
-.pc-detalhes textarea { margin-top: 4px; }
-.pc-remover { white-space: nowrap; }
-.pc-itens td:last-child { min-width: 86px; }
-.pc-contatos input { width: 100%; box-sizing: border-box; }
-
-.pc-dados { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 10px 0 0; font-size: 13px; }
-.pc-dados dt { color: var(--ct-text-2); }
-.pc-dados dd { margin: 0; }
-.pc-texto { font-size: 13px; line-height: 1.55; }
-.pc-texto p { margin: 0 0 8px; }
-.pc-nota { display: flex; flex-direction: column; gap: 8px; margin: 0 0 14px; }
-.pc-nota textarea { width: 100%; box-sizing: border-box; }
-.pc-nota-linha { display: flex; flex-wrap: wrap; gap: 8px; }
-.pc-nota-linha input { width: 100%; box-sizing: border-box; }
-.pc-historico { list-style: none; margin: 0; padding: 0 0 0 14px; border-left: 2px solid var(--ct-border); display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
-.pc-evento { position: relative; display: flex; flex-direction: column; gap: 2px; }
-.pc-evento::before { content: ""; position: absolute; left: -20px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background: var(--ct-border); }
-.pc-evento--etapa::before, .pc-evento--criada::before { background: var(--ct-accent); }
-.pc-evento--revisada::before { background: var(--ct-serie-4); }
-.pc-evento-quando { font-size: 11.5px; color: var(--ct-text-2); }
-.pc-revisao { border-top: 1px solid var(--ct-border); padding: 10px 0; font-size: 13px; }
-.pc-revisao table { margin: 8px 0; }
-.pc-lista { margin: 8px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
 .ct-card h2 i { color: var(--ct-accent); margin-right: 4px; }
-
-/* ------------------------------------------------ metodologia */
-.mt-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 20px; align-items: start; }
-.mt-indice { position: sticky; top: 76px; padding: 14px 16px; }
-.mt-indice ol { margin: 8px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
-.mt-indice a { color: var(--ct-text); text-decoration: none; }
-.mt-indice a:hover { color: var(--ct-accent); }
-.mt-conteudo { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.mt-secao { scroll-margin-top: 80px; line-height: 1.6; font-size: 14px; }
-.mt-secao h2 { font-size: 18px; margin: 0 0 10px; }
-.mt-secao h3 { font-size: 14px; margin: 18px 0 6px; }
-.mt-secao p { margin: 0 0 10px; }
-.mt-secao code { font-size: 12.5px; background: var(--ct-muted); padding: 1px 5px; border-radius: 4px; }
-.mt-secao pre:not(.mermaid) { background: var(--ct-muted); border-radius: 10px; padding: 12px 14px; overflow-x: auto; font-size: 12.5px; line-height: 1.5; }
-.mt-secao pre:not(.mermaid) code { background: none; padding: 0; }
-.mt-secao pre.mermaid { background: transparent; margin: 14px 0; padding: 12px; border: 1px solid var(--ct-border); border-radius: 10px; overflow-x: auto; text-align: center; font-size: 13px; }
-.mt-secao pre.mermaid svg { max-width: 100%; height: auto; max-height: 900px; }
-.mt-lista { margin: 8px 0 10px; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
-.mt-tabela { margin: 10px 0; }
-.mt-tabela td:first-child { white-space: nowrap; font-weight: 500; }
-.mt-figura { margin: 0 0 26px; }
-.mt-figura figcaption { margin: 0 0 8px; font-size: 13.5px; }
-.mt-figura img { display: block; width: 100%; height: auto; border: 1px solid var(--ct-border); border-radius: 10px; box-shadow: var(--ct-sombra); }
-.mt-passo {
-    display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; margin-right: 4px;
-    border-radius: 50%; background: var(--ct-accent); color: #fff; font-size: 12px; font-weight: 700;
-}
-@media (max-width: 900px) {
-  .mt-layout { grid-template-columns: 1fr; }
-  .mt-indice { position: static; }
-  .mt-tabela td:first-child { white-space: normal; }
-}
-
-/* ------------------------------------------------ histórico e contratos */
-.hs-matriz td, .hs-matriz th { padding: 6px 8px; }
-.hs-celula { min-width: 30px; }
-.hs-nivel-1 { background: color-mix(in srgb, var(--ct-accent) 12%, transparent); }
-.hs-nivel-2 { background: color-mix(in srgb, var(--ct-accent) 26%, transparent); }
-.hs-nivel-3 { background: color-mix(in srgb, var(--ct-accent) 42%, transparent); }
-.hs-nivel-4 { background: color-mix(in srgb, var(--ct-accent) 62%, transparent); color: #fff; font-weight: 600; }
-.hs-barra { display: inline-block; width: 90px; height: 8px; margin-right: 8px; border-radius: 4px; background: var(--ct-muted); vertical-align: middle; }
-.hs-barra span { display: block; height: 8px; border-radius: 4px; background: var(--ct-pos); }
-.hs-rolagem { max-height: 520px; overflow-y: auto; }
-.hs-abas { padding: 0 16px; }
-
-/* ------------------------------------------------ NDAs */
-.nd-vencido { background: #fde8e7; color: #a4221b; }
-.nd-vence_em_breve { background: var(--ct-warn-bg); color: var(--ct-warn); }
-.nd-vigente { background: var(--ct-accent-soft); color: var(--ct-pos); }
-.nd-sem_vencimento { background: var(--ct-muted); color: var(--ct-text-2); }
-html.dark .nd-vencido { background: #3a1716; color: #f79c95; }
-.nd-arquivo { display: block; font-size: 12.5px; }
+/* Roteiros recolhíveis (SSO) e blocos de comando (migração, .env) */
+.ct-card details + details, .ct-card h2 + details { margin-top: 8px; }
+.ct-card summary { cursor: pointer; padding: 4px 0; }
+.ct-card details ol { margin: 6px 0 4px; padding-left: 22px; }
+.ct-card pre.ct-codigo { background: var(--ct-muted); border: 1px solid var(--ct-border); border-radius: 8px; padding: 10px 12px; overflow-x: auto; }

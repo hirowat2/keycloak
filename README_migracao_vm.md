@@ -2,6 +2,14 @@
 
 Este guia leva todos os realms de um Keycloak que roda em container numa VM para este Keycloak, tanto no compose quanto no Kubernetes.
 
+> **Atalho:** os passos abaixo estão automatizados. Na VM, o [scripts/exportar_vm.sh](scripts/exportar_vm.sh) faz o passo 1 e escolhe o caminho (Postgres → `keycloak.dump`; H2 ou outro banco → `kc-export.tgz`). No destino, `make importar-realms` (A) ou `make restaurar-dump` (B), com as variantes `k8s-`. Depois, a tela **Migração da VM** do assistente troca o host antigo e lista os usuários incompletos (seção 2). A tela também monta os comandos com os nomes da sua VM. Este guia continua sendo a referência do que cada passo faz.
+>
+> ```bash
+> scp scripts/exportar_vm.sh usuario@vm: && ssh usuario@vm sh exportar_vm.sh <container-do-keycloak>
+> scp usuario@vm:kc-export.tgz .   && make importar-realms    # caminho A
+> scp usuario@vm:keycloak.dump .   && make restaurar-dump     # caminho B (pede confirmação: apaga o banco daqui)
+> ```
+
 > **Sobre as figuras:** os terminais e as telas abaixo são **saídas reais** de um ensaio da migração em laboratório:
 > - a "VM antiga" rodava o Keycloak **26.1.5**: o container `vm-keycloak` em `start-dev`/H2, com os realms `pseudo658` e `parceiros`, e o `vm2-keycloak` com Postgres 16 (`vm-postgres`), com os realms `financeiro` e `rh`;
 > - o destino foi uma cópia deste `docker-compose.yaml` com o Keycloak **26.8.1**. Nas figuras, os containers dele aparecem como `kclab-*`; no projeto real, o nome é `keycloak-*`.
@@ -57,7 +65,7 @@ flowchart TB
 
 Nos dois casos, a versão do Keycloak da VM tem de ser **igual ou mais antiga** que a daqui (26.8.1). Na primeira subida, o Keycloak atualiza o schema e os realms sozinho (`Migrating older model to ...` no log; veja a figura do [B.2](#b2-restaurar-no-compose)). Voltar para uma versão mais antiga não funciona.
 
-> Os arquivos exportados e o dump têm hashes de senha e secrets de clients. Não versione: guarde em `keycloak/export/` ou use a extensão `.dump`, que estão no `.gitignore`. Apague depois da migração.
+> Os arquivos exportados e o dump têm hashes de senha e secrets de clients. Não versione: guarde em `export/` ou use a extensão `.dump`, que estão no `.gitignore`. Apague depois da migração.
 
 ---
 
@@ -109,7 +117,7 @@ flowchart LR
     subgraph VM["VM antiga"]
       E["kc.sh export<br/>--users realm_file"] --> J["kc-export/<br/>master-realm.json<br/>pseudo658-realm.json<br/>…"]
     end
-    J -- "tar + scp" --> X["keycloak/export/kc-export/<br/>(máquina de destino)"]
+    J -- "tar + scp" --> X["export/kc-export/<br/>(máquina de destino)"]
     X -- "docker compose cp" --> C["compose:<br/>kc.sh import --override false<br/>+ restart"]
     X -- "kubectl exec -i … cat" --> K["Kubernetes:<br/>kc.sh import --override false<br/>+ rollout restart"]
 ```
@@ -173,7 +181,7 @@ Nos dois casos, sai um `<realm>-realm.json` para cada realm, inclusive o `master
 ```bash
 tar czf kc-export.tgz kc-export          # na VM
 scp <vm>:kc-export.tgz .                 # na sua máquina
-mkdir -p keycloak/export && tar xzf kc-export.tgz -C keycloak/export
+mkdir -p export && tar xzf kc-export.tgz -C export
 ```
 
 ### A.2 Importar no compose
@@ -181,11 +189,12 @@ mkdir -p keycloak/export && tar xzf kc-export.tgz -C keycloak/export
 Com o Keycloak daqui no ar (`make compose`):
 
 ```bash
-cd keycloak
 docker compose cp export/kc-export keycloak:/tmp/kc-import
 docker compose exec keycloak /opt/keycloak/bin/kc.sh import --dir /tmp/kc-import --override false --http-management-port=9001
 docker compose restart keycloak
 ```
+
+Atalho: `make importar-realms` (extrai o `kc-export.tgz` se a pasta não existir e roda os três comandos).
 
 O `--override false` pula os realms que já existem: o `master` e o `automateflow` daqui ficam como estão. Para substituir um realm de mesmo nome pelo da VM, use `--override true`. O `restart` é necessário para o servidor que já estava rodando enxergar os realms novos.
 
@@ -208,7 +217,7 @@ A imagem do Keycloak não tem `tar`, então o `kubectl cp` não funciona com ela
 ```bash
 POD=$(kubectl -n keycloak get pod -l application=keycloak -o name | head -1)
 kubectl -n keycloak exec $POD -- mkdir -p /tmp/kc-import
-for f in keycloak/export/kc-export/*.json; do
+for f in export/kc-export/*.json; do
   case "$f" in */master-*) continue ;; esac
   kubectl -n keycloak exec -i $POD -- sh -c "cat > /tmp/kc-import/$(basename "$f")" < "$f"
 done
@@ -229,6 +238,8 @@ sequenceDiagram
     L->>P: rollout restart deploy/keycloak
 ```
 
+Atalho: `make k8s-importar-realms`.
+
 A saída do `kc.sh import` é a mesma da figura do A.2. O `master` é pulado já no laço, então nem aparece no log.
 
 ---
@@ -240,7 +251,7 @@ flowchart LR
     subgraph VM["VM antiga (sem parar nada)"]
       PGV[("Postgres da VM")] -- "pg_dump -Fc" --> D["keycloak.dump"]
     end
-    D -- scp --> M["keycloak/keycloak.dump"]
+    D -- scp --> M["keycloak.dump"]
     subgraph DEST["Destino (apaga o banco daqui!)"]
       S1["stop keycloak"] --> S2["dropdb + createdb"] --> S3["pg_restore"] --> S4["up keycloak"] --> S5["migração automática<br/>do schema para 26.8"]
     end
@@ -275,7 +286,6 @@ O `pg_dump` tira um retrato consistente mesmo com o Keycloak no ar, então não 
 > ⚠️ **Isto apaga o banco atual do Keycloak daqui.**
 
 ```bash
-cd keycloak
 docker compose stop keycloak
 docker compose up -d --wait keycloak-db
 docker compose exec -T keycloak-db sh -c 'dropdb -U "$POSTGRES_USER" --if-exists "$POSTGRES_DB" && createdb -U "$POSTGRES_USER" "$POSTGRES_DB"'
@@ -283,6 +293,8 @@ docker compose exec -T keycloak-db sh -c 'pg_restore -U "$POSTGRES_USER" -d "$PO
 docker compose up -d keycloak
 make logs                                # acompanhe a migração do schema
 ```
+
+Atalho: `make restaurar-dump` (pede para digitar `apagar` antes).
 
 Na figura:
 
@@ -315,6 +327,8 @@ flowchart LR
     A["scale --replicas=0<br/>(fecha as conexões)"] --> B["dropdb + createdb<br/>no keycloak-db-0"] --> C["pg_restore < keycloak.dump"] --> D["scale --replicas=1"] --> E["logs: Updating database /<br/>Migrating older model"]
 ```
 
+Atalho: `make k8s-restaurar-dump` (pede confirmação e espera o pod antigo sair antes do `dropdb`).
+
 O log do pod mostra as mesmas linhas da figura do B.2 (itens 3 a 5).
 
 Depois do B, o console é acessado com o **admin da VM**. O `realm/automateflow-realm.json` daqui ainda é importado no boot, se esse realm não estiver no dump.
@@ -342,7 +356,7 @@ Em `https://<host>/admin`, veja se todos os realms aparecem (figuras do [A.2](#a
 
 ### Host novo
 
-Se o endereço mudou, há três lugares para ajustar.
+Se o endereço mudou, há três lugares para ajustar. Os itens a e b são feitos pela tela **Migração da VM → Host novo** do assistente, um realm por vez.
 
 **a) Frontend URL do realm.** Se a VM tinha uma (1), o realm continua mandando o navegador para o host antigo. Apague o campo em *Realm settings → General → Frontend URL* e salve.
 
@@ -371,8 +385,8 @@ No Keycloak 24 ou mais novo, o perfil de usuário exige e-mail, nome e sobrenome
 
 ![Completar cadastro no primeiro login](docs/img/mig-m06-completar-cadastro.png)
 
-Fluxos sem tela (password grant) falham com `Account is not fully set up` até o cadastro ser completado. Para evitar isso, preencha os campos pelo console (*Users → \<usuário\> → Details*) antes de liberar o acesso.
+Fluxos sem tela (password grant) falham com `Account is not fully set up` até o cadastro ser completado. Para evitar isso, preencha os campos pelo console (*Users → \<usuário\> → Details*) antes de liberar o acesso. A tela **Migração da VM** do assistente lista esses usuários.
 
 ### Só desligue a VM depois de validar
 
-Depois, apague os arquivos exportados (`keycloak/export/`, `kc-export.tgz`) e o dump (`keycloak.dump`), aqui e na VM.
+Depois, apague os arquivos exportados (`export/`, `kc-export.tgz`) e o dump (`keycloak.dump`), aqui e na VM.

@@ -40,20 +40,16 @@ RUN --mount=type=secret,id=github_pat,env=GITHUB_PAT \
 FROM python:${PYTHON_VERSION}-slim
 
 LABEL author="hirowat2"
-LABEL project="commercialproposal"
+LABEL project="keycloak-assistente"
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/usr/src/.venv/bin:${PATH}" \
     PYTHONPATH="/usr/src/src"
 
-# Só o necessário em execução: cliente MariaDB (mysqlclient) e Pango/HarfBuzz + fontes (PDF do WeasyPrint).
+# Só o necessário em execução: cliente MariaDB (mysqlclient, exigido pelo pseudoproject).
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libmariadb3 \
-        libpango-1.0-0 \
-        libpangoft2-1.0-0 \
-        libharfbuzz-subset0 \
-        fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src

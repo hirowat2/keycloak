@@ -101,10 +101,10 @@ network:
 compose: env network secret
 	@if [ -n "$$(docker ps -q --filter publish=443)" ]; then \
 		echo "➡️  Traefik já rodando; registrando o Keycloak e o assistente nele"; \
-		docker compose up -d --build --remove-orphans; \
+		docker compose up --build; \
 	else \
 		echo "➡️  Nenhum Traefik encontrado; subindo o reverse-proxy junto"; \
-		docker compose --profile traefik up -d --build --remove-orphans; \
+		docker compose --profile traefik up --build; \
 	fi
 	@echo "✅ Keycloak:   https://$(or $(KC_HOST),keycloak.docker.localhost)/admin (o primeiro boot leva ~1 min; acompanhe com make logs)"
 	@echo "✅ Assistente: https://$(or $(ASSISTENTE_HOST),keycloak-assistente.docker.localhost)"

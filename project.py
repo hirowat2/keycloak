@@ -4,7 +4,7 @@ from pathlib import Path
 from pseudoproject.setup.setup import Setup
 
 packagePath = Path(__file__).resolve().parent
-packageName = "commercial"
+packageName = "keycloak"
 mediaPath = os.path.abspath("media")
 staticPath = os.path.abspath("static")
 

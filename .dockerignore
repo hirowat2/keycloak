@@ -6,7 +6,12 @@ db.sqlite3
 static
 prof/*.prof
 tests
-documents
+docs
 k8s
-data
+realm
+scripts
 *.svg
+# Exports e dumps da migração: têm hashes de senha e secrets
+export
+*.dump
+kc-export.tgz

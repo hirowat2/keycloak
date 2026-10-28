@@ -1,0 +1,136 @@
+# Assistente (app Django) no mesmo namespace do Keycloak. Fala com a Admin API pelo Service
+# (http://keycloak:8080), com o admin do master de keycloak-secrets, e guarda o histórico num SQLite em PVC.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: assistente-data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: assistente
+  labels:
+    application: assistente
+spec:
+  # SQLite num volume ReadWriteOnce: uma réplica, e a nova só sobe depois que a antiga sai
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      application: assistente
+  template:
+    metadata:
+      labels:
+        application: assistente
+    spec:
+      imagePullSecrets:
+        - name: regcred
+      containers:
+        - name: assistente
+          image: estat/keycloak-assistente:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 80
+          env:
+            - name: KC_HOSTNAME
+              valueFrom: { configMapKeyRef: { name: keycloak-config, key: KC_HOSTNAME } }
+            - name: ASSISTENTE_HOSTNAME
+              valueFrom: { configMapKeyRef: { name: keycloak-config, key: ASSISTENTE_HOSTNAME } }
+            - name: DEBUG
+              value: "false"
+            - name: GUNICORN_WORKERS
+              value: "3"
+            - name: TZ
+              value: America/Sao_Paulo
+            - name: HOST
+              value: https://$(ASSISTENTE_HOSTNAME)
+            - name: DJANGO_DATABASE_ENGINE
+              value: sqlite
+            - name: DJANGO_DATABASE_NAME
+              value: /usr/src/data/assistente.sqlite3
+            - name: SECRET_KEY
+              valueFrom: { secretKeyRef: { name: keycloak-secrets, key: ASSISTENTE_SECRET_KEY } }
+            # Login no assistente: client keycloak-assistente do realm KC_REALM (o entrypoint cria se faltar)
+            - name: KEYCLOAK_HOST
+              value: https://$(KC_HOSTNAME)/
+            - name: KEYCLOAK_INTERNAL_URL
+              value: http://keycloak:8080/
+            - name: KEYCLOAK_REALM
+              valueFrom: { configMapKeyRef: { name: keycloak-config, key: KC_REALM } }
+            - name: KEYCLOAK_CLIENT_ID
+              value: keycloak-assistente
+            # Admin API: o admin do master. Se a senha for trocada no console, troque também no secrets.env
+            - name: KEYCLOAK_ADMIN_USER
+              valueFrom: { secretKeyRef: { name: keycloak-secrets, key: KC_BOOTSTRAP_ADMIN_USERNAME } }
+            - name: KEYCLOAK_ADMIN_PASSWORD
+              valueFrom: { secretKeyRef: { name: keycloak-secrets, key: KC_BOOTSTRAP_ADMIN_PASSWORD } }
+          startupProbe:                   # a inicialização roda collectstatic, migrate e preparar_login
+            httpGet:
+              path: /health/
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /health/
+              port: http
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            privileged: false
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            - name: data
+              mountPath: /usr/src/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: assistente-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: assistente
+  labels:
+    application: assistente
+spec:
+  selector:
+    application: assistente
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: assistente
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.tls.certresolver: default
+spec:
+  rules:
+    # Substituído pelo ASSISTENTE_HOSTNAME de k8s/config.env (replacements no kustomization.yaml)
+    - host: ASSISTENTE_HOSTNAME
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: assistente
+                port:
+                  number: 80

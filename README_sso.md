@@ -11,6 +11,18 @@ As telas foram capturadas no Keycloak 26.8.1, com o realm deste repositório. Os
 
 O console fica em `https://<KC_HOST>/admin`. Entre com o admin do realm **master** (`KC_ADMIN_USER`).
 
+> **Atalho:** o assistente (`https://<ASSISTENTE_HOST>`, veja o [README](README.md)) faz pelo Keycloak tudo o que este guia manda clicar, com "Simular" antes de "Aplicar":
+>
+> | Seção do guia | Tela do assistente |
+> |---|---|
+> | 1. Criando um realm (1.1–1.7) e 3.1 Roles | **1 · Realm e apps** |
+> | 3.2 Grupos | **2 · Grupos e roles** |
+> | 2. Provedor SAML (URLs do 2.1, cadastro do 2.3, mappers do 2.4, login direto do 2.6) | **3 · SSO corporativo** |
+> | 4.4 Mapeando no Keycloak | **4 · Grupos do SSO** |
+> | 3.3, 4.5 Conferindo, 1.8 `.env` dos apps e "Versionando" | **5 · Conferir** |
+>
+> O que acontece **no SSO** (seções 2.2 e 4.1–4.3) continua sendo feito no portal do Entra, do Google ou do Okta; a tela 3 mostra as URLs e o roteiro para o time do SSO. Este guia segue como referência do que cada tela faz e por quê.
+
 ---
 
 ## Visão geral
@@ -608,7 +620,9 @@ Repita para `automateflow-admins`, `automateflow-linode` e `automateflow-migrato
 Tudo o que foi feito pelo console (provedor SAML, mappers, grupos, roles) fica só no banco. Para levar para o Git:
 
 ```bash
-make export   # grava o realm em ./export/
+make realm-export   # grava o realm em ./export/
 ```
+
+Ou use o botão **JSON para versionar** da tela **5 · Conferir** do assistente: ele já sai só com os blocos abaixo, sem ids, usuários, secrets nem chaves.
 
 Copie de `export/<realm>-realm.json` para `realm/` só os blocos `identityProviders`, `identityProviderMappers`, `groups` e `roles`. **Não versione** usuários, hashes de senha nem a seção `components`, que tem as chaves privadas. Lembre-se de que o `realm/*.json` só é importado quando o realm ainda não existe (veja o [README](README.md#realm-automateflow)).
