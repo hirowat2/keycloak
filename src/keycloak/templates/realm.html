@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Realm e apps | Assistente Keycloak{% endblock %}
+
+{% block main %}
+<div class="ct-page">
+  <header class="ct-header">
+    <div>
+      <p class="ct-eyebrow">Etapa 1</p>
+      <h1 class="ct-title">{% if novo %}Novo realm{% else %}Realm {{ realm }} e apps{% endif %}</h1>
+      <p class="ct-subtitle">Cria (ou acerta) o realm com as configurações do guia, a role <code>ADMIN</code>, um client OIDC público com PKCE por app e uma role de acesso com o nome de cada client.</p>
+    </div>
+    {% if not novo and pode_editar %}<a class="ct-btn" href="?novo=1">+ Novo realm</a>{% endif %}
+  </header>
+
+  {% include "plano.html" %}
+
+  <form method="post" class="ct-card ct-cadastro">
+    {% csrf_token %}
+    {% if not novo %}<input type="hidden" name="realm_tela" value="{{ realm }}">{% endif %}
+    {% include "form_secoes.html" %}
+
+    <fieldset class="ct-cadastro-secao">
+      <legend>Apps (um client por app)</legend>
+      {{ apps.management_form }}
+      {% if apps.non_form_errors %}<div class="ct-alert">{{ apps.non_form_errors }}</div>{% endif %}
+      <div class="ct-table-wrap">
+        <table class="ct-table ct-table--compacta">
+          <thead><tr><th>Client ID</th><th>Nome</th><th>URL pública</th><th>Callback</th></tr></thead>
+          <tbody>
+            {% for f in apps %}
+              <tr>
+                <td>{{ f.client_id }}{% for e in f.client_id.errors %}<span class="ct-neg ct-note">{{ e }}</span>{% endfor %}</td>
+                <td>{{ f.nome }}</td>
+                <td>{{ f.url }}{% for e in f.url.errors %}<span class="ct-neg ct-note">{{ e }}</span>{% endfor %}</td>
+                <td>{{ f.callback }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="ct-note">Redirect: <code>&lt;URL&gt;&lt;callback&gt;</code> · post logout: <code>&lt;URL&gt;/*</code> · web origin: <code>&lt;URL&gt;</code>. Os apps Django recebem o login em <code>/oidc/callback/</code>. Para mais apps, aplique e a tela ganha outra linha vazia. Apps tirados daqui não são apagados do Keycloak.</p>
+    </fieldset>
+
+    {% include "botoes_plano.html" %}
+  </form>
+
+  <details class="ct-card">
+    <summary><strong>O que o assistente acerta no realm</strong></summary>
+    <table class="ct-table ct-table--compacta" style="margin-top:8px">
+      <tbody>
+        <tr><td>Require SSL</td><td><code>External requests</code></td><td class="ct-note">1.2</td></tr>
+        <tr><td>User registration / Forgot password</td><td><code>Off</code> / <code>Off</code></td><td class="ct-note">1.3: os usuários e as senhas vêm do SSO</td></tr>
+        <tr><td>Login with email</td><td><code>On</code></td><td class="ct-note">1.3</td></tr>
+        <tr><td>Idiomas</td><td><code>pt-BR</code> (padrão) e <code>en</code></td><td class="ct-note">1.4</td></tr>
+        <tr><td>Brute Force Mode</td><td><code>Lockout temporarily</code></td><td class="ct-note">1.5</td></tr>
+        <tr><td>Clients</td><td>público, só Standard flow, PKCE <code>S256</code></td><td class="ct-note">1.7</td></tr>
+      </tbody>
+    </table>
+  </details>
+</div>
+{% endblock main %}

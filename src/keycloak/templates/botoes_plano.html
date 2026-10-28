@@ -1,0 +1,9 @@
+{% comment %}Botões das etapas: Simular (padrão, não grava) e Aplicar (grava; só Admin). Contexto: pode_editar, confirmar.{% endcomment %}
+<div class="ct-actions" style="margin-top:12px">
+  <button class="ct-btn" name="acao" value="simular"><i class="fa-solid fa-flask"></i> Simular</button>
+  {% if pode_editar %}
+    <button class="ct-btn ct-btn--primario" name="acao" value="aplicar" data-confirmar="{{ confirmar|default:'Aplicar estas mudanças no Keycloak?' }}"><i class="fa-solid fa-play"></i> Aplicar</button>
+  {% else %}
+    <span class="ct-note">Só administradores (role ADMIN) aplicam. Você pode simular.</span>
+  {% endif %}
+</div>

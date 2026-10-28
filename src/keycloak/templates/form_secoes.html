@@ -6,7 +6,7 @@
     <legend>{{ titulo }}</legend>
     <div class="ct-cadastro-campos">
       {% for nome_campo in campos %}{% with f=form|campo:nome_campo %}{% if f %}
-        <div class="ct-field {% if f.field.widget.attrs.rows %}ct-field--largo{% endif %}">
+        <div class="ct-field {% if f.field.widget.attrs.rows %}ct-field--largo{% endif %}{% if f.field.widget.input_type == 'checkbox' %} ct-field--check{% endif %}">
           <label for="{{ f.id_for_label }}">{{ f.label }}{% if f.field.required %} *{% endif %}</label>
           {{ f }}
           {% if f.help_text %}<span class="ct-note">{{ f.help_text }}</span>{% endif %}

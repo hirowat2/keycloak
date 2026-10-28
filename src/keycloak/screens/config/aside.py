@@ -1,31 +1,24 @@
 """Menu lateral do sistema, em seções, com os grupos que podem ver cada item."""
 
-GRUPOS_CONSULTA = ["Admin", "Master", "Tech", "Limited"]
-GRUPOS_EDICAO = ["Admin", "Master", "Tech"]
+GRUPOS_CONSULTA = ["Admin", "Limited"]
 
 SECOES = [
     {
-        "titulo": "Comercial",
+        "titulo": "Assistente",
         "itens": [
-            {"href": "/app/painel/", "label": "Painel comercial", "icon": "fa-solid fa-chart-pie", "required_groups": GRUPOS_CONSULTA},
-            {"href": "/app/propostas/", "label": "Propostas", "icon": "fa-solid fa-file-signature", "required_groups": GRUPOS_CONSULTA},
-            {"href": "/app/contratos/", "label": "Contratos", "icon": "fa-solid fa-file-contract", "required_groups": GRUPOS_CONSULTA},
-            {"href": "/app/ndas/", "label": "NDAs", "icon": "fa-solid fa-user-shield", "required_groups": GRUPOS_CONSULTA},
+            {"href": "/app/painel/", "label": "Painel", "icon": "fa-solid fa-gauge", "required_groups": GRUPOS_CONSULTA},
+            {"href": "/app/realm/", "label": "1 · Realm e apps", "icon": "fa-solid fa-layer-group", "required_groups": GRUPOS_CONSULTA},
+            {"href": "/app/grupos/", "label": "2 · Grupos e roles", "icon": "fa-solid fa-users-gear", "required_groups": GRUPOS_CONSULTA},
+            {"href": "/app/sso/", "label": "3 · SSO corporativo", "icon": "fa-solid fa-building-shield", "required_groups": GRUPOS_CONSULTA},
+            {"href": "/app/mapeamento/", "label": "4 · Grupos do SSO", "icon": "fa-solid fa-diagram-project", "required_groups": GRUPOS_CONSULTA},
+            {"href": "/app/conferir/", "label": "5 · Conferir", "icon": "fa-solid fa-list-check", "required_groups": GRUPOS_CONSULTA},
+        ],
+    },
+    {
+        "titulo": "Manutenção",
+        "itens": [
+            {"href": "/app/migracao/", "label": "Migração da VM", "icon": "fa-solid fa-truck-arrow-right", "required_groups": GRUPOS_CONSULTA},
             {"href": "/app/historico/", "label": "Histórico", "icon": "fa-solid fa-clock-rotate-left", "required_groups": GRUPOS_CONSULTA},
-        ],
-    },
-    {
-        "titulo": "Cadastros",
-        "itens": [
-            {"href": "/app/clientes/", "label": "Clientes", "icon": "fa-solid fa-address-book", "required_groups": GRUPOS_CONSULTA},
-            {"href": "/app/catalogo/", "label": "Produtos e serviços", "icon": "fa-solid fa-box-open", "required_groups": GRUPOS_CONSULTA},
-        ],
-    },
-    {
-        "titulo": "Integração e ajuda",
-        "itens": [
-            {"href": "/app/sincronizacao/", "label": "Sincronização", "icon": "fa-solid fa-cloud-arrow-down", "required_groups": GRUPOS_CONSULTA},
-            {"href": "/app/metodologia/", "label": "Metodologia", "icon": "fa-solid fa-diagram-project", "required_groups": GRUPOS_CONSULTA},
         ],
     },
     {

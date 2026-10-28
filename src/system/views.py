@@ -19,7 +19,7 @@ from django.views.static import serve
 from django.template import loader
 from suspense.shortcuts import render
 
-from proposal.sso import external_login_required
+from system.sso import external_login_required
 
 
 def media(request: HttpRequest, path: str) -> HttpResponseBase:

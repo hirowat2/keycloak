@@ -1,5 +1,5 @@
-PWA_APP_NAME = "CommercialProposal"
-PWA_APP_DESCRIPTION = "Controle de propostas comerciais"
+PWA_APP_NAME = "Assistente Keycloak"
+PWA_APP_DESCRIPTION = "Realm, SSO corporativo, grupos e migração do Keycloak sem cliques no console"
 PWA_APP_THEME_COLOR = "#0A0302"
 PWA_APP_BACKGROUND_COLOR = "#ffffff"
 PWA_APP_DISPLAY = "standalone"
@@ -19,9 +19,9 @@ PWA_APP_DIR = "ltr"
 PWA_APP_LANG = "pt-BR"
 PWA_APP_SHORTCUTS = [
     {
-        "name": "Propostas",
-        "url": "/app/propostas/",
-        "description": "Lista de propostas comerciais",
+        "name": "Painel",
+        "url": "/app/painel/",
+        "description": "Realms e o andamento de cada etapa",
     }
 ]
 PWA_APP_SCREENSHOTS = [

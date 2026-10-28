@@ -1,35 +1,31 @@
 from django import template
 
-from commercial.propostas.empresas import eh_admin, empresa_ativa, empresas_do_usuario, papel_ativo
-from commercial.propostas.models import PAPEL_ADMIN
-from commercial.screens.config.aside import SECOES
+from keycloak.screens.config.aside import SECOES
+from keycloak.screens.config.permissions import user_in_groups
 
 register = template.Library()
 
 
 @register.simple_tag(takes_context=True)
 def menu_app(context) -> dict:
-    """Seções do menu visíveis ao usuário, o item da página atual e as empresas.
+    """Seções do menu visíveis ao usuário, o item da página atual e os realms.
 
-    Os itens dependem do papel do usuário na empresa ativa. O item ativo é o
-    de ``href`` mais longo que prefixa o caminho atual, para que
-    ``/app/propostas/?id=7`` continue marcando "Propostas".
+    O item ativo é o de ``href`` mais longo que prefixa o caminho atual, para
+    que ``/app/grupos/?novo=1`` continue marcando "Grupos e roles". Os realms
+    vêm do contexto da tela (``com_realm``); telas sem Keycloak não mostram o seletor.
     """
     request = context.get("request")
     user = getattr(request, "user", None)
     caminho = getattr(request, "path", "")
     if not getattr(user, "is_authenticated", False):
-        return {"secoes": [], "ativo": None, "empresa": "", "empresas": []}
+        return {"secoes": [], "ativo": None, "realm": "", "realms": []}
 
-    empresa = empresa_ativa(request)
-    # Admin vê a Administração mesmo antes de existir alguma empresa.
-    papel = PAPEL_ADMIN if eh_admin(user) else papel_ativo(request)
     secoes = []
     for secao in SECOES:
         itens = [
             dict(item)
             for item in secao["itens"]
-            if not item.get("required_groups") or papel in item["required_groups"]
+            if not item.get("required_groups") or user_in_groups(user, item["required_groups"])
         ]
         if itens:
             secoes.append({"titulo": secao["titulo"], "itens": itens})
@@ -41,9 +37,8 @@ def menu_app(context) -> dict:
     return {
         "secoes": secoes,
         "ativo": ativo,
-        "empresa": empresa.nome if empresa else "",
-        "empresa_id": empresa.pk if empresa else None,
-        "empresas": list(empresas_do_usuario(user).order_by("nome")),
+        "realm": context.get("realm") or "",
+        "realms": context.get("realms") or [],
     }
 
 

@@ -1,149 +1,167 @@
 services:
-  commercialproposal:
-    hostname: commercialproposal
+  # ------------------------------------------------ ASSISTENTE --------------------------------------------------------
+  # App Django que aplica os passos do README_sso.md e do README_migracao_vm.md pela Admin API do Keycloak.
+
+  assistente:
+    hostname: assistente
     build:
       context: .
       # Token das dependências privadas do GitHub; não fica gravado na imagem.
       secrets:
         - github_pat
-    deploy:
-      mode: replicated
-      replicas: 1
     restart: on-failure
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       # General
       - DEBUG=true
-      - RUN_MAKEMIGRATIONS=1
       - GUNICORN_WORKERS=3
       - GUNICORN_TIMEOUT=600
       - DJANGO_SUPERUSER_USERNAME=estatcamp
       - DJANGO_SUPERUSER_PASSWORD=estatcamp
       - DJANGO_SUPERUSER_EMAIL=estatcamp@estatcamp.com.br
-      - HOST=https://propostas.docker.localhost
+      - HOST=https://${ASSISTENTE_HOST:-keycloak-assistente.docker.localhost}
       # Django DB
-      - DJANGO_DATABASE_ENGINE=${DJANGO_DATABASE_ENGINE:-postgresql}
-      - DJANGO_DATABASE_HOST=${DJANGO_DATABASE_HOST:-propostas-db}
-      - DJANGO_DATABASE_NAME=${DJANGO_DATABASE_NAME:-commercialproposal}
-      - DJANGO_DATABASE_USERNAME=${DJANGO_DATABASE_USERNAME:-postgres}
-      - DJANGO_DATABASE_PASSWORD=${DJANGO_DATABASE_PASSWORD:-estatcamp}
-      - DJANGO_DATABASE_PORT=${DJANGO_DATABASE_PORT:-5432}
-      # Keycloak
-      - KEYCLOAK_REALM=commercialproposal
-      - KEYCLOAK_CLIENT_ID=commercialproposal
-      - KEYCLOAK_HOST=https://keycloak-propostas.docker.localhost/
-      # Endereço do Keycloak dentro da rede do Docker, para baixar as chaves que conferem o token
-      - KEYCLOAK_INTERNAL_URL=http://propostas-keycloak:8080/
-      # SharePoint (Microsoft Graph, só leitura); o segredo vem do .env, nunca do repositório
-      - SHAREPOINT_TENANT_ID=${SHAREPOINT_TENANT_ID:-}
-      - SHAREPOINT_CLIENT_ID=${SHAREPOINT_CLIENT_ID:-}
-      - SHAREPOINT_CLIENT_SECRET=${SHAREPOINT_CLIENT_SECRET:-}
-      # Sincronização automática com o SharePoint (minutos entre rodadas; 0 desliga)
-      - SHAREPOINT_INTERVALO_MINUTOS=${SHAREPOINT_INTERVALO_MINUTOS:-60}
+      - DJANGO_DATABASE_ENGINE=postgresql
+      - DJANGO_DATABASE_HOST=assistente-db
+      - DJANGO_DATABASE_NAME=assistente
+      - DJANGO_DATABASE_USERNAME=postgres
+      - DJANGO_DATABASE_PASSWORD=${ASSISTENTE_DB_PASSWORD:-estatcamp}
+      - DJANGO_DATABASE_PORT=5432
+      # Login no assistente: client "keycloak-assistente" do realm KC_REALM (o entrypoint cria se faltar)
+      - KEYCLOAK_HOST=https://${KC_HOST:-keycloak.docker.localhost}/
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/
+      - KEYCLOAK_REALM=${KC_REALM:-automateflow}
+      - KEYCLOAK_CLIENT_ID=keycloak-assistente
+      # Admin API: o admin do realm master, o mesmo do console
+      - KEYCLOAK_ADMIN_USER=${KC_ADMIN_USER:-admin}
+      - KEYCLOAK_ADMIN_PASSWORD=${KC_ADMIN_PASSWORD:-admin}
     labels:
       - traefik.enable=true
       - traefik.docker.network=proxy
-      - traefik.http.routers.commercialproposal.tls=true
-      - traefik.http.routers.commercialproposal.rule=Host(`propostas.docker.localhost`)
+      - traefik.http.routers.keycloak-assistente.tls=true
+      - traefik.http.routers.keycloak-assistente.rule=Host(`${ASSISTENTE_HOST:-keycloak-assistente.docker.localhost}`)
     volumes:
-      - ${PWD}/data:/usr/src/data
-      - ${PWD}/src:/usr/src/src
-      - ${PWD}/media:/usr/src/media
-      - ${PWD}/static:/usr/src/static
+      - ./src:/usr/src/src
+      - ./media:/usr/src/media
     networks:
       - default
       - proxy
     depends_on:
-      propostas-db:
+      assistente-db:
+        condition: service_healthy
+      keycloak:
         condition: service_healthy
 
-  # ------------------------------------------------ DATABASES -----------------------------------------------------------
-  # Nomes com o prefixo "propostas-" e banco só na rede interna da stack: a rede "proxy" é
-  # compartilhada com outros sistemas (ex.: CostManage), e nomes iguais lá se misturam no DNS.
-
-  propostas-db:
-    image: postgres:16-alpine
+  assistente-db:
+    image: postgres:17-alpine
     restart: on-failure
     environment:
-      - POSTGRES_DB=commercialproposal
+      - POSTGRES_DB=assistente
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=estatcamp
-    networks:
-      - default
+      - POSTGRES_PASSWORD=${ASSISTENTE_DB_PASSWORD:-estatcamp}
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - assistente-db:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d commercialproposal"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d assistente"]
       interval: 10s
       timeout: 5s
-      retries: 3
-
-  # ------------------------------------------- DATABASES DASHBOARDS -----------------------------------------------------
-
-  propostas-adminer:
-    image: wodby/adminer:4.8
-    restart: on-failure
-    environment:
-      - ADMINER_DEFAULT_DB_DRIVER=pgsql
-      - ADMINER_DEFAULT_DB_HOST=propostas-db
-      - ADMINER_DEFAULT_DB_NAME=commercialproposal
-      - ADMINER_DESIGN=nette
+      retries: 5
     labels:
-      - traefik.enable=true
-      - traefik.docker.network=proxy
-      - traefik.http.routers.propostas-adminer.tls=true
-      - traefik.http.routers.propostas-adminer.rule=Host(`adminer-propostas.docker.localhost`)
+      - traefik.enable=false
     networks:
       - default
-      - proxy
 
-  propostas-keycloak:
-    image: quay.io/keycloak/keycloak:26.1.5-0
+  # ------------------------------------------------- KEYCLOAK ---------------------------------------------------------
+
+  keycloak:
+    hostname: keycloak
+    image: quay.io/keycloak/keycloak:26.8.1
+    # --import-realm só cria os realms de ./realm que ainda não existem no banco
+    command: start --import-realm
     restart: on-failure
-    command: start-dev --import-realm
+    env_file:
+      - path: .env
+        required: false
     environment:
-      - KC_HOSTNAME_STRICT=true
+      # Admin do realm master (só é criado no primeiro boot, com o banco vazio)
+      - KC_BOOTSTRAP_ADMIN_USERNAME=${KC_ADMIN_USER:-admin}
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=${KC_ADMIN_PASSWORD:-admin}
+      # Banco
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://keycloak-db:5432/${KC_DB_NAME:-keycloak}
+      - KC_DB_USERNAME=${KC_DB_USER:-keycloak}
+      - KC_DB_PASSWORD=${KC_DB_PASSWORD:-keycloak}
+      # Atrás do Traefik: TLS termina no proxy, o Keycloak fala HTTP na 8080.
+      # O back-channel (http://keycloak:8080) continua funcionando para os apps da rede proxy.
+      - KC_HOSTNAME=https://${KC_HOST:-keycloak.docker.localhost}
       - KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true
-      - KC_HOSTNAME=https://keycloak-propostas.docker.localhost/
-      - KC_BOOTSTRAP_ADMIN_USERNAME=admin
-      - KC_BOOTSTRAP_ADMIN_PASSWORD=admin
-      - KC_HEALTH_ENABLED=true
-      - KC_METRICS_ENABLED=true
-      - KC_TLS_HOSTNAME_VERIFIER=ANY
       - KC_HTTP_ENABLED=true
       - KC_PROXY_HEADERS=xforwarded
-      - KC_LOG_CONSOLE_LEVEL=error
+      - KC_HEALTH_ENABLED=true
+      - KC_METRICS_ENABLED=true
+      - KC_LOG_LEVEL=${KC_LOG_LEVEL:-info}
+      # Usados como placeholders em realm/*.json
+      - KC_REALM=${KC_REALM:-automateflow}
+      - KC_REALM_ADMIN_USER=${KC_REALM_ADMIN_USER:-admin}
+      - KC_REALM_ADMIN_PASSWORD=${KC_REALM_ADMIN_PASSWORD:-admin}
+      - ATLAS_INSIGHTS_URL=${ATLAS_INSIGHTS_URL:-https://atlas-insights.docker.localhost}
+      - LINODE_INSIGHTS_URL=${LINODE_INSIGHTS_URL:-https://linode-insights.docker.localhost}
+      - MONGO_MIGRATOR_URL=${MONGO_MIGRATOR_URL:-https://mongo-migrator.docker.localhost}
     volumes:
-      - ./data/keycloak/realm/:/opt/keycloak/data/import/:ro
-    # https://gist.github.com/sarath-soman/5d9aec06953bbd0990c648605d4dba07?permalink_comment_id=5376088#gistcomment-5376088
+      - ./realm:/opt/keycloak/data/import:ro
+    # Health fica na porta de gerenciamento (9000); a imagem não tem curl
     healthcheck:
-      test: [
-          "CMD-SHELL",
-          "exec 3<>/dev/tcp/localhost/8080; \
-          echo -en 'GET /health/ready' >&3; \
-          # Give the server a moment to respond, then search for 'UP'
-          if timeout 3 cat <&3 | grep -m 1 'UP'; then \
-          exec 3<&-; exec 3>&-; exit 0; \
-          else \
-          exec 3<&-; exec 3>&-; exit 1; \
-          fi",
-        ]
-      interval: 60s
-      timeout: 20s
-      retries: 5
+      test:
+        - CMD-SHELL
+        - >-
+          exec 3<>/dev/tcp/localhost/9000 &&
+          printf 'GET /health/ready HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3 &&
+          grep -q '"UP"' <&3
+      interval: 15s
+      timeout: 5s
+      retries: 10
       start_period: 60s
     labels:
       - traefik.enable=true
       - traefik.docker.network=proxy
-      - traefik.http.routers.propostas-keycloak.tls=true
-      - traefik.http.routers.propostas-keycloak.rule=Host(`keycloak-propostas.docker.localhost`)
+      - traefik.http.routers.keycloak.tls=true
+      - traefik.http.routers.keycloak.rule=Host(`${KC_HOST:-keycloak.docker.localhost}`)
+      - traefik.http.services.keycloak.loadbalancer.server.port=8080
     networks:
       - default
       - proxy
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
 
+  keycloak-db:
+    hostname: keycloak-db
+    image: postgres:17-alpine
+    restart: on-failure
+    environment:
+      - POSTGRES_DB=${KC_DB_NAME:-keycloak}
+      - POSTGRES_USER=${KC_DB_USER:-keycloak}
+      - POSTGRES_PASSWORD=${KC_DB_PASSWORD:-keycloak}
+    volumes:
+      - keycloak-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - traefik.enable=false
+    # Os bancos ficam só na rede da stack, fora da "proxy" compartilhada com outros projetos
+    networks:
+      - default
+
+  # Só sobe com `--profile traefik` (ou `make compose` quando não há Traefik nas portas 80/443).
+  # Usa a mesma config local de ~/.traefik e ~/.certs dos outros projetos.
   reverse-proxy:
     image: traefik:3.7.1
+    profiles: [traefik]
     security_opt:
       - no-new-privileges:true
     restart: on-failure
@@ -156,16 +174,8 @@ services:
       - ${HOME}/.certs:/etc/certs:ro
       - ${HOME}/.traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ${HOME}/.traefik/config.yml:/etc/traefik/config.yml:ro
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.traefik=true
     networks:
       - proxy
-    depends_on:
-      commercialproposal:
-        condition: service_healthy
-      propostas-keycloak:
-        condition: service_healthy
 
 #  NETWORK -----------------------------------------------------------
 
@@ -179,4 +189,5 @@ secrets:
     environment: GITHUB_PAT
 
 volumes:
-  postgres-data:
+  assistente-db:
+  keycloak-db:

@@ -1,12 +1,8 @@
 {% load static django_htmx component_tags app_menu %}{% menu_app as menu %}<!doctype html>
 <html lang="pt-BR">
   <head>
-    <title>{% block title %}CommercialProposal{% endblock %}{% if menu.empresa %} · {{ menu.empresa }}{% endif %}</title>
+    <title>{% block title %}Assistente Keycloak{% endblock %}{% if menu.realm %} · {{ menu.realm }}{% endif %}</title>
     {% include "head.html" %}
-    <script defer type="module">
-      import { resumeSession } from "{% static 'sso/keycloak.js' %}";
-      document.addEventListener("DOMContentLoaded", resumeSession);
-    </script>
   </head>
 
   <body class="app-body">
@@ -50,8 +46,21 @@
           // localStorage indisponível: vale só nesta página.
         }
       }));
-      // Troca de empresa: envia o formulário ao escolher outra.
-      document.querySelectorAll("[data-trocar-empresa]").forEach((s) => s.addEventListener("change", () => s.form.submit()));
+      // Troca de realm: envia o formulário ao escolher outro.
+      document.querySelectorAll("[data-trocar-realm]").forEach((s) => s.addEventListener("change", () => s.form.submit()));
+      // Botões "Copiar" dos valores que vão para o SSO e para o .env dos apps.
+      document.querySelectorAll("[data-copiar]").forEach((b) => b.addEventListener("click", () => {
+        const alvo = document.getElementById(b.dataset.copiar);
+        navigator.clipboard.writeText(alvo.value ?? alvo.textContent).then(() => {
+          const antes = b.innerHTML;
+          b.innerHTML = '<i class="fa-solid fa-check"></i> Copiado';
+          setTimeout(() => (b.innerHTML = antes), 1500);
+        });
+      }));
+      // "Aplicar" pede confirmação: grava no Keycloak.
+      document.querySelectorAll("button[name=acao][value=aplicar]").forEach((b) => b.addEventListener("click", (e) => {
+        if (!confirm(b.dataset.confirmar || "Aplicar estas mudanças no Keycloak?")) e.preventDefault();
+      }));
       // Tema claro/escuro (mesma chave usada antes: "color-theme").
       document.querySelectorAll("[data-alternar-tema]").forEach((b) => b.addEventListener("click", () => {
         const escuro = document.documentElement.classList.toggle("dark");

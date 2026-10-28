@@ -2,7 +2,7 @@ from django_components import ComponentsSettings
 
 COMPONENTS = ComponentsSettings(
     dirs=[
-        os.path.join(BASE_DIR, "proposal", "components"),
+        os.path.join(BASE_DIR, "system", "components"),
     ],
 )
 

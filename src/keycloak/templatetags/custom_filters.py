@@ -1,5 +1,3 @@
-from decimal import Decimal
-
 from django import template
 
 register = template.Library()
@@ -25,54 +23,6 @@ def attr(obj, attr_name):
         return obj.get(attr_name, None)
     return getattr(obj, attr_name, None)
 
-@register.filter(name="brl")
-def brl(value):
-    """Formata um número como moeda brasileira: 1234.5 -> 'R$ 1.234,50'."""
-    if value is None or value == "":
-        return "—"
-    numero = Decimal(str(value))
-    texto = f"{abs(numero):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-    return f"-R$ {texto}" if numero < 0 else f"R$ {texto}"
-
-
-def _br(numero: Decimal, casas: int) -> str:
-    return f"{numero:,.{casas}f}".replace(",", "X").replace(".", ",").replace("X", ".")
-
-
-@register.filter(name="pct")
-def pct(value, casas=1):
-    """12.3 -> '12,3%' ({{ v|pct:2 }} -> '12,30%'); None -> '—'."""
-    if value is None or value == "":
-        return "—"
-    return f"{_br(Decimal(str(value)), int(casas))}%"
-
-
-@register.filter(name="indice")
-def indice(value, casas=2):
-    """Número com ``casas`` decimais (padrão 2): 1.5 -> '1,50'; None -> '—'."""
-    if value is None or value == "":
-        return "—"
-    return _br(Decimal(str(value)), int(casas))
-
-
-@register.filter(name="sinal")
-def sinal(value):
-    """Classe CSS para destacar valores negativos."""
-    try:
-        return "ct-neg" if Decimal(str(value)) < 0 else ""
-    except Exception:
-        return ""
-
-
-@register.filter(name="brl_curto")
-def brl_curto(value):
-    """Valor abreviado para rótulos de gráfico: 12300 -> 'R$ 12 mil'."""
-    from commercial.propostas.valores import valor_curto
-
-    if value is None or value == "":
-        return "—"
-    return valor_curto(Decimal(str(value)))
-
 
 @register.filter(name="chave")
 def chave(dicionario, nome):
@@ -92,3 +42,9 @@ def nome_usuario(usuario, vazio="—"):
     if not usuario:
         return vazio
     return usuario.get_full_name() or usuario.username
+
+
+@register.filter(name="situacao_css")
+def situacao_css(situacao):
+    """Badge de um passo do plano: criar/atualizar em destaque, remover em alerta."""
+    return {"criar": "ct-badge--ok", "atualizar": "ct-badge--ok", "remover": "ct-badge--alerta"}.get(situacao, "")

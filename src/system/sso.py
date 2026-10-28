@@ -2,8 +2,9 @@
 
 O ``keycloak.js`` grava o token de acesso no cookie ``SSOToken``; aqui ele é
 validado (assinatura do realm, emissor, client e validade) e o e-mail, o nome e
-os papéis saem do token, nunca de cookies avulsos. Só entram os e-mails de
-``EMAILS_PERMITIDOS`` (ver ``documents/controle_de_acesso.md``).
+as roles de realm saem do token, nunca de cookies avulsos. Só entram os e-mails
+de ``EMAILS_PERMITIDOS``. Quem tem a role ``ADMIN`` (a mesma que vira superuser
+nos apps, ver README_sso.md) aplica mudanças; os demais só consultam.
 """
 
 from functools import lru_cache, wraps
@@ -35,8 +36,11 @@ EMAILS_PERMITIDOS = frozenset(
 )
 
 
-# Usuário "admin" do realm local (data/keycloak/realm); entra só com DEBUG ligado, como no docker-compose.
-EMAIL_ADMIN_LOCAL = "local-admin@mail.com"
+# Usuário "admin" do realm/automateflow-realm.json (KC_REALM_ADMIN_USER); entra só com DEBUG ligado, como no docker-compose.
+EMAIL_ADMIN_LOCAL = "admin@automateflow.local"
+
+# Role de realm que dá o grupo Admin (aplica mudanças); sem ela, o usuário fica no Limited (só consulta).
+ROLE_ADMIN = environ.get("KEYCLOAK_ADMIN_ROLE", "ADMIN")
 
 
 def email_permitido(email: str) -> bool:
@@ -78,8 +82,9 @@ def claims_do_token(token: str) -> dict:
 class EmailPermitidoMiddleware:
     """Encerra a sessão de quem entrou pelo Keycloak e saiu da lista de e-mails.
 
-    Vale só para contas do login corporativo (sem senha no Django); o
-    superusuário local do /admin/ não passa por aqui.
+    Vale só para contas do login corporativo (sem senha no Django), inclusive
+    as que viraram superuser pela role ADMIN; o superusuário local do /admin/,
+    que tem senha, não passa por aqui.
     """
 
     def __init__(self, get_response):
@@ -90,7 +95,6 @@ class EmailPermitidoMiddleware:
         if (
             user is not None
             and user.is_authenticated
-            and not user.is_superuser
             and not user.has_usable_password()
             and not email_permitido(user.email)
         ):
@@ -127,10 +131,7 @@ def auth_complete(
 ):
     allowedGroups = [
         "Admin",
-        "Master",
-        "Tech",
         "Limited",
-        "Missing",
     ]
     create_default_groups(allowedGroups)
 
@@ -143,8 +144,8 @@ def auth_complete(
 
     email = (claims.get("email") or "").strip()
     name = (claims.get("name") or claims.get("preferred_username") or "").strip()
-    groups = [g.strip().lower() for g in claims.get("resource_access", {}).get("account", {}).get("roles", [])]
-    defaultUser = "Master"
+    roles = claims.get("realm_access", {}).get("roles", [])
+    admin = ROLE_ADMIN in roles
 
     if not email or not name:
         return HttpResponseBadRequest(
@@ -154,15 +155,15 @@ def auth_complete(
     if not email_permitido(email):
         return HttpResponseForbidden(SEM_PERMISSAO.format(email=email))
 
-    validGroups = [g.capitalize() for g in groups if g.capitalize() in allowedGroups]
-    userGroups = [defaultUser] if not len(validGroups) else validGroups
-    djangoGroups = Group.objects.filter(name__in=userGroups)
+    djangoGroups = Group.objects.filter(name="Admin" if admin else "Limited")
     # A conta é a do e-mail (a lista de acesso é por e-mail); o nome só batiza contas novas.
     user = User.objects.filter(email__iexact=email).first()
     if user is None:
         username = email if User.objects.filter(username=name).exists() else name
         user = User.objects.create(username=username, email=email)
 
+    # Como nos apps: a role ADMIN vira staff + superuser (e dá acesso ao /admin/).
+    user.is_staff = user.is_superuser = admin
     user.set_unusable_password()
     user.groups.set(djangoGroups)
     user.save()

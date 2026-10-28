@@ -1,26 +1,24 @@
 {% extends "base.html" %}
-{% block title %}Início | CommercialProposal{% endblock %}
+{% block title %}Início | Assistente Keycloak{% endblock %}
 
 {% block main %}
 <div class="ct-page">
   <header class="ct-header">
     <div>
-      <p class="ct-eyebrow">Comercial</p>
-      <h1 class="ct-title">Controle de propostas comerciais</h1>
-      <p class="ct-subtitle">Do rascunho ao fechamento: itens com preço de tabela, aprovação de descontos, envio com validade, follow-up, revisões e indicadores.</p>
+      <p class="ct-eyebrow">Assistente</p>
+      <h1 class="ct-title">Keycloak sem cliques no console</h1>
+      <p class="ct-subtitle">Cada etapa é um formulário. "Simular" mostra o que mudaria; "Aplicar" grava pela Admin API. Rodar de novo uma etapa já aplicada não duplica nada.</p>
     </div>
     <a class="ct-btn ct-btn--primario" href="/app/painel/">Abrir o painel →</a>
   </header>
 
   <div class="ct-grid">
-    <a class="ct-card" href="/app/painel/"><h2>Painel comercial</h2><p class="ct-note" style="margin-top:6px">Pipeline, previsão ponderada, conversão, ticket médio, ciclo de venda e o que precisa de atenção hoje.</p></a>
-    <a class="ct-card" href="/app/propostas/"><h2>Propostas</h2><p class="ct-note" style="margin-top:6px">Funil com etapas, validade, próxima ação, histórico, revisões e impressão em PDF.</p></a>
-    <a class="ct-card" href="/app/clientes/"><h2>Clientes</h2><p class="ct-note" style="margin-top:6px">Contas e contatos, com as propostas e o valor ganho de cada cliente.</p></a>
-    <a class="ct-card" href="/app/catalogo/"><h2>Produtos e serviços</h2><p class="ct-note" style="margin-top:6px">Preços de tabela, referência para medir e aprovar descontos.</p></a>
+    <a class="ct-card" href="/app/realm/"><h2>1 · Realm e apps</h2><p class="ct-note" style="margin-top:6px">Realm com SSL, idioma, login e força bruta como no guia; um client público com PKCE e uma role de acesso por app.</p></a>
+    <a class="ct-card" href="/app/grupos/"><h2>2 · Grupos e roles</h2><p class="ct-note" style="margin-top:6px">Grupos de admins e de cada app, com as roles de realm. Roles vão para grupos, nunca para usuários.</p></a>
+    <a class="ct-card" href="/app/sso/"><h2>3 · SSO corporativo</h2><p class="ct-note" style="margin-top:6px">As URLs para mandar ao time do Entra/Google/Okta e o provedor SAML cadastrado a partir do metadata, com os mappers.</p></a>
+    <a class="ct-card" href="/app/mapeamento/"><h2>4 · Grupos do SSO</h2><p class="ct-note" style="margin-top:6px">Um mapper por grupo: quem está no grupo do SSO entra no grupo do Keycloak a cada login.</p></a>
+    <a class="ct-card" href="/app/conferir/"><h2>5 · Conferir</h2><p class="ct-note" style="margin-top:6px">Checklist contra o guia, roles efetivas de um usuário, .env dos apps e o JSON para versionar.</p></a>
+    <a class="ct-card" href="/app/migracao/"><h2>Migração da VM</h2><p class="ct-note" style="margin-top:6px">Os comandos de export/dump prontos, troca do host antigo e usuários que vão precisar completar o cadastro.</p></a>
   </div>
-
-  <section class="ct-info">
-    <strong>Primeiros passos:</strong> 1) em Administração → Empresas (papel Admin), confira razão social, CNPJ, prefixo da numeração, validade padrão, desconto máximo e termos; 2) cadastre o <a href="/app/catalogo/">catálogo</a> e os <a href="/app/clientes/">clientes</a>; 3) crie a <a href="/app/propostas/?novo=1">primeira proposta</a>; 4) acompanhe o <a href="/app/painel/">painel</a>.
-  </section>
 </div>
 {% endblock main %}

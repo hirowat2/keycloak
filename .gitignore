@@ -177,6 +177,14 @@ cython_debug/
 static/*
 db.sqlite3
 prof/*.prof
-# Arquivos enviados ou baixados pelo sistema (documentos das empresas)
-media/empresas/
 *_diagram.svg
+
+# Exports do realm (podem conter hashes de senha e secrets de clients)
+export/
+
+# Senhas do deploy no Kubernetes
+k8s/secrets.env
+
+# Dumps do banco e exports da VM (migração)
+*.dump
+kc-export.tgz

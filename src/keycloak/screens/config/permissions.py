@@ -1,4 +1,4 @@
-"""Grupos do usuário (Admin, Master, Tech, Limited)."""
+"""Grupos do usuário (Admin aplica mudanças; Limited só consulta)."""
 from functools import wraps
 from django.core.exceptions import PermissionDenied
 

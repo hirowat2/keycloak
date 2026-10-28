@@ -1,0 +1,25 @@
+{% load custom_filters %}
+{% comment %}Resultado de uma etapa (simulação ou aplicação). Contexto: plano.{% endcomment %}
+{% if plano %}
+<section class="ct-card ct-card--flush" id="plano">
+  <div class="ct-card-head">
+    <h2>{% if plano.simular %}Simulação: o que vai mudar{% else %}Aplicado no Keycloak{% endif %}</h2>
+    <span class="ct-badge {% if plano.mudancas %}ct-badge--ok{% endif %}">{{ plano.mudancas }} mudança{{ plano.mudancas|pluralize }}</span>
+  </div>
+  <div class="ct-table-wrap">
+    <table class="ct-table ct-table--compacta">
+      <thead><tr><th>Ação</th><th>Tipo</th><th>Objeto</th><th>Detalhe</th></tr></thead>
+      <tbody>
+        {% for p in plano.passos %}
+          <tr{% if p.situacao == "ok" %} class="ct-muted"{% endif %}>
+            <td><span class="ct-badge {{ p.situacao|situacao_css }}">{{ p.rotulo }}</span></td>
+            <td>{{ p.tipo }}</td>
+            <td class="ct-codigo">{{ p.alvo }}</td>
+            <td class="ct-note">{{ p.detalhe }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}

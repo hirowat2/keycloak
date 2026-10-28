@@ -13,7 +13,7 @@ Class-based views
 Including another URLconf
     1. Import the include() function: from django.urls import include, path, re_path
 
-from proposal import views
+from system import views
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
@@ -25,7 +25,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path, re_path
 
-from proposal import views
+from system import views
 
 urlpatterns = (
     [
@@ -33,8 +33,8 @@ urlpatterns = (
         path("", include("django_components.urls")),
         path("", include("pwa.urls")),
         path("admin/", admin.site.urls),
-        path("", include("proposal.landing")),
-        path("app/", include("proposal.app")),
+        path("", include("system.landing")),
+        path("app/", include("system.app")),
         path(r"health/", include("health_check.urls")),
         path("silk/", include("silk.urls", namespace="silk")),
         # /media/ também com DEBUG desligado (CSS, JS e imagens do layout ficam aí).

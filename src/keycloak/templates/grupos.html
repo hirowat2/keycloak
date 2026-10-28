@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Grupos e roles | Assistente Keycloak{% endblock %}
+
+{% block main %}
+<div class="ct-page">
+  <header class="ct-header">
+    <div>
+      <p class="ct-eyebrow">Etapa 2</p>
+      <h1 class="ct-title">Grupos e roles</h1>
+      <p class="ct-subtitle">No SSO você controla <em>quem</em> está em cada grupo; aqui, <em>o que</em> cada grupo pode fazer. Os apps leem só as roles de realm do token: <code>ADMIN</code> vira superuser e a role com o nome do client libera o app (<code>KEYCLOAK_REQUIRED_ROLE</code>).</p>
+    </div>
+    <a class="ct-btn" href="?sugestao=1">Completar com a estrutura sugerida</a>
+  </header>
+
+  {% include "plano.html" %}
+  {% if sugestao %}<div class="ct-info">Linhas preenchidas com a estrutura sugerida da seção 3.2 (um grupo de admins e um por app). Ajuste os nomes para ficarem <strong>iguais aos grupos do SSO</strong> e simule.</div>{% endif %}
+
+  <form method="post" class="ct-card ct-card--flush">
+    {% csrf_token %}<input type="hidden" name="realm_tela" value="{{ realm }}">
+    {{ formset.management_form }}
+    <div class="ct-table-wrap">
+      <table class="ct-table">
+        <thead><tr><th>Grupo</th>{% for r in roles %}<th class="ct-num"><span class="ct-codigo">{{ r }}</span></th>{% endfor %}</tr></thead>
+        <tbody>
+          {% for f in formset %}
+            <tr>
+              <td>{{ f.nome }}{% for e in f.nome.errors %}<span class="ct-neg ct-note">{{ e }}</span>{% endfor %}</td>
+              {% for cb in f.roles %}<td class="ct-num"><label title="{{ cb.choice_label }}">{{ cb.tag }}</label></td>{% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div style="padding:0 16px 16px">
+      <p class="ct-note">Desmarcar uma role tira a role do grupo. Grupos apagados desta lista continuam no Keycloak. Para mais grupos, aplique e a tela ganha outras linhas vazias. Falta uma role? Ela nasce com o app na <a href="/app/realm/">etapa 1</a>.</p>
+      {% include "botoes_plano.html" %}
+    </div>
+  </form>
+
+  <section class="ct-info">
+    <strong>Regras da seção 3.2:</strong> dê roles a grupos, nunca a usuários; não ponha membros à mão em grupos que vêm do SSO (com Sync mode <code>Force</code>, o próximo login sobrescreve); prefira uma estrutura plana; não use <em>Default groups</em> para dar acesso. Depois de mudar um grupo, o usuário precisa sair e entrar de novo.
+  </section>
+</div>
+{% endblock main %}

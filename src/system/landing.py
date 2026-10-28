@@ -1,6 +1,6 @@
 from django.urls import path
 
-from proposal.sso import auth_complete
+from system.sso import auth_complete
 
 from . import views
 

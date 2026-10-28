@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Sem conexão | Assistente Keycloak{% endblock %}
+
+{% block main %}
+<div class="ct-page">
+  <header class="ct-header">
+    <div>
+      <p class="ct-eyebrow">Keycloak</p>
+      <h1 class="ct-title">O Keycloak não respondeu</h1>
+      <p class="ct-subtitle">O assistente fala com a Admin API em <code>{{ servidor }}</code>, com o admin do realm master.</p>
+    </div>
+  </header>
+  <div class="ct-alert">{{ erro }}</div>
+  <section class="ct-info">
+    Confira: o Keycloak está no ar (<code>make logs</code>)? <code>KEYCLOAK_INTERNAL_URL</code> aponta para ele? <code>KEYCLOAK_ADMIN_USER</code> e <code>KEYCLOAK_ADMIN_PASSWORD</code> são os do console (<code>KC_ADMIN_USER</code>/<code>KC_ADMIN_PASSWORD</code>)? Lembre que essa senha só vale no primeiro boot: se foi trocada no console, troque também no <code>.env</code>.
+  </section>
+</div>
+{% endblock %}

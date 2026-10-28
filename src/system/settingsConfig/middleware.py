@@ -13,7 +13,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "proposal.sso.EmailPermitidoMiddleware",
+    "system.sso.EmailPermitidoMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     # "debug_toolbar.middleware.DebugToolbarMiddleware",
     "auditlog.middleware.AuditlogMiddleware",

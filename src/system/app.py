@@ -1,12 +1,12 @@
 from django.urls import path
 
-from commercial.propostas.empresas import trocar_empresa
+from keycloak.automacao.web import trocar_realm
 
 from . import views
 from .sso import external_login_required
 
 urlpatterns = [
     path("", views.index, name="index"),
-    path("empresa/", external_login_required(trocar_empresa), name="trocar_empresa"),
+    path("realm-ativo/", external_login_required(trocar_realm), name="trocar_realm"),
     path("<str:page>/", views.page, name="page"),
 ]

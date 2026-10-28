@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Sem realm | Assistente Keycloak{% endblock %}
+
+{% block main %}
+<div class="ct-page">
+  <header class="ct-header">
+    <div>
+      <p class="ct-eyebrow">Realm</p>
+      <h1 class="ct-title">Nenhum realm para configurar</h1>
+      <p class="ct-subtitle">O Keycloak só tem o realm master, que é o do console. Crie o realm dos apps primeiro.</p>
+    </div>
+    <a class="ct-btn ct-btn--primario" href="/app/realm/?novo=1">+ Novo realm</a>
+  </header>
+</div>
+{% endblock %}

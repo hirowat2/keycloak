@@ -1,11 +1,11 @@
 {% load app_menu custom_filters %}
 <aside class="app-sidebar" aria-label="Menu principal">
   <div class="app-marca">
-    <a class="app-marca-link" href="/app/" title="{{ menu.empresa|default:'CommercialProposal' }}">
-      <span class="app-marca-logo" aria-hidden="true">P</span>
+    <a class="app-marca-link" href="/app/" title="Assistente Keycloak">
+      <span class="app-marca-logo" aria-hidden="true">K</span>
       <span class="app-marca-texto">
-        <span class="app-marca-nome">Propostas</span>
-        <span class="app-marca-sub">{{ menu.empresa|default:"Controle comercial" }}</span>
+        <span class="app-marca-nome">Keycloak</span>
+        <span class="app-marca-sub">{{ menu.realm|default:"Assistente" }}</span>
       </span>
     </a>
     <button type="button" class="app-recolher" data-recolher-menu aria-label="Recolher menu" title="Recolher menu">
@@ -13,14 +13,14 @@
     </button>
   </div>
 
-  {% if menu.empresas|length > 1 %}
-    <form class="app-empresa-troca" method="post" action="/app/empresa/" title="Empresa: {{ menu.empresa }}">
+  {% if menu.realms %}
+    <form class="app-empresa-troca" method="post" action="/app/realm-ativo/" title="Realm: {{ menu.realm }}">
       {% csrf_token %}
-      <input type="hidden" name="next" value="{{ request.path }}">
-      <label class="app-empresa-rotulo" for="empresa-ativa"><i class="fa-solid fa-building" aria-hidden="true"></i><span>Empresa</span></label>
-      <select id="empresa-ativa" name="empresa" data-trocar-empresa>
-        {% for e in menu.empresas %}
-          <option value="{{ e.pk }}" {% if e.pk == menu.empresa_id %}selected{% endif %}>{{ e.nome }}</option>
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <label class="app-empresa-rotulo" for="realm-ativo"><i class="fa-solid fa-layer-group" aria-hidden="true"></i><span>Realm</span></label>
+      <select id="realm-ativo" name="realm" data-trocar-realm>
+        {% for r in menu.realms %}
+          <option value="{{ r }}" {% if r == menu.realm %}selected{% endif %}>{{ r }}</option>
         {% endfor %}
       </select>
       <noscript><button type="submit" class="ct-btn">Trocar</button></noscript>

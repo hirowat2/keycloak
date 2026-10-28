@@ -1,125 +1,81 @@
 {% extends "base.html" %}
 {% load custom_filters %}
-{% block title %}Painel comercial | CommercialProposal{% endblock %}
+{% block title %}Painel | Assistente Keycloak{% endblock %}
 
 {% block main %}
 <div class="ct-page">
   <header class="ct-header">
     <div>
-      <p class="ct-eyebrow">Comercial</p>
-      <h1 class="ct-title">Painel comercial</h1>
-      <p class="ct-subtitle">Pipeline e previsão de hoje; conversão, ticket e ciclo das propostas fechadas de {{ filtro.descricao }}{% if filtro.responsavel %} de {{ filtro.responsavel|nome_usuario }}{% endif %}.</p>
+      <p class="ct-eyebrow">Assistente</p>
+      <h1 class="ct-title">Painel</h1>
+      <p class="ct-subtitle">Keycloak <strong>{{ versao|default:"?" }}</strong> em <code>{{ servidor }}</code>. Escolha o realm no menu lateral; cada etapa vale para ele.</p>
     </div>
-    <a class="ct-btn ct-btn--primario" href="/app/propostas/">Ver propostas →</a>
+    {% if pode_editar %}<a class="ct-btn ct-btn--primario" href="/app/realm/?novo=1">+ Novo realm</a>{% endif %}
   </header>
 
-  <form method="get" class="ct-card ct-filters">
-    {% for field in filtro.form %}
-      <div class="ct-field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}</div>
-    {% endfor %}
-    <button class="ct-btn ct-btn--primario">Aplicar</button>
-    {% for erro in filtro.form.non_field_errors %}<p class="ct-neg ct-note" style="width:100%">{{ erro }}</p>{% endfor %}
-  </form>
-
-  {% if vazio %}
-    <div class="ct-info">Nenhuma proposta ainda. Cadastre <a href="/app/clientes/?novo=1">clientes</a>, os <a href="/app/catalogo/">produtos e serviços</a> e crie a primeira <a href="/app/propostas/?novo=1">proposta</a>.</div>
-  {% endif %}
-
-  <section class="ct-kpis">
-    <div class="ct-kpi"><p class="ct-kpi-label">Pipeline com clientes</p><p class="ct-kpi-value">{{ pipeline|brl }}</p><p class="ct-kpi-sub">{{ pipeline_qtd }} enviada{{ pipeline_qtd|pluralize }} ou em negociação</p></div>
-    <div class="ct-kpi"><p class="ct-kpi-label">Previsão ponderada</p><p class="ct-kpi-value">{{ ponderado|brl }}</p><p class="ct-kpi-sub">{{ abertas_qtd }} aberta{{ abertas_qtd|pluralize }} × probabilidade</p></div>
-    <div class="ct-kpi"><p class="ct-kpi-label">Vendido no período</p><p class="ct-kpi-value ct-pos">{{ ganho|brl }}</p><p class="ct-kpi-sub">{{ ganhas_qtd }} proposta{{ ganhas_qtd|pluralize }} ganha{{ ganhas_qtd|pluralize }}</p></div>
-    <div class="ct-kpi"><p class="ct-kpi-label">Taxa de conversão</p><p class="ct-kpi-value">{{ conversao.quantidade|pct }}</p><p class="ct-kpi-sub">{{ conversao.valor|pct }} em valor · {{ decididas_qtd }} decidida{{ decididas_qtd|pluralize }}</p></div>
-    <div class="ct-kpi"><p class="ct-kpi-label">Ticket médio</p><p class="ct-kpi-value">{{ ticket_medio|brl }}</p><p class="ct-kpi-sub">das ganhas no período</p></div>
-    <div class="ct-kpi"><p class="ct-kpi-label">Ciclo de venda</p><p class="ct-kpi-value">{% if ciclo_medio is not None %}{{ ciclo_medio }} dia{{ ciclo_medio|pluralize }}{% else %}—{% endif %}</p><p class="ct-kpi-sub">do envio ao ganho, em média</p></div>
-  </section>
-
-  {% if aguardando_aprovacao or acoes_atrasadas or vencendo or sem_proxima_acao %}
-  <section class="ct-grid">
-    {% if aguardando_aprovacao %}
-    <div class="ct-card">
-      <h2><i class="fa-solid fa-user-check" aria-hidden="true"></i> Aguardando aprovação</h2>
-      <ul class="pc-lista">{% for p in aguardando_aprovacao %}<li><a href="/app/propostas/?id={{ p.pk }}">{{ p.codigo }}</a> {{ p.cliente }} · {{ p.valor_total|brl }} · desc. {{ p.desconto|pct }}</li>{% endfor %}</ul>
-    </div>
-    {% endif %}
-    {% if acoes_atrasadas %}
-    <div class="ct-card">
-      <h2><i class="fa-solid fa-bell" aria-hidden="true"></i> Follow-ups atrasados</h2>
-      <ul class="pc-lista">{% for p in acoes_atrasadas %}<li><a href="/app/propostas/?id={{ p.pk }}">{{ p.codigo }}</a> <span class="ct-neg">{{ p.proxima_acao_em|date:"d/m" }}</span> {{ p.proxima_acao }}</li>{% endfor %}</ul>
-    </div>
-    {% endif %}
-    {% if vencendo %}
-    <div class="ct-card">
-      <h2><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i> Vencem em até 7 dias</h2>
-      <ul class="pc-lista">{% for p in vencendo %}<li><a href="/app/propostas/?id={{ p.pk }}">{{ p.codigo }}</a> {{ p.cliente }} · {{ p.valor_total|brl }} · até {{ p.validade|date:"d/m" }}</li>{% endfor %}</ul>
-    </div>
-    {% endif %}
-    {% if sem_proxima_acao %}
-    <div class="ct-card">
-      <h2><i class="fa-solid fa-circle-question" aria-hidden="true"></i> Com o cliente, sem próxima ação</h2>
-      <ul class="pc-lista">{% for p in sem_proxima_acao %}<li><a href="/app/propostas/?id={{ p.pk }}">{{ p.codigo }}</a> {{ p.cliente }} · {{ p.valor_total|brl }}</li>{% endfor %}</ul>
-    </div>
-    {% endif %}
-  </section>
-  {% endif %}
-
-  <section class="ct-grid ct-grid--graficos">
-    <div class="ct-card">
-      <div class="ct-card-head ct-card-head--solto"><h2>Funil de propostas abertas</h2></div>
-      <ul class="ct-barras">
-        {% for l in funil %}
-          <li class="ct-barra-linha">
-            <a class="ct-barra-nome" href="/app/propostas/?ver=abertas&etapa={{ l.etapa }}">{{ l.rotulo }} <span class="ct-muted">({{ l.qtd }})</span></a>
-            <span class="ct-barra-trilho"><span class="ct-barra-preenchida pc-barra--{{ l.etapa }}" style="width:{{ l.largura }}%"></span></span>
-            <span class="ct-barra-valor">{{ l.valor|brl_curto }}</span>
-          </li>
-        {% endfor %}
-      </ul>
-    </div>
-    <div class="ct-card">
-      <div class="ct-card-head ct-card-head--solto"><h2>Vendido por {{ por_mes_titulo }}</h2></div>
-      <ul class="ct-barras">
-        {% for m in por_mes %}
-          <li class="ct-barra-linha">
-            <span class="ct-barra-nome">{{ m.rotulo }}</span>
-            <span class="ct-barra-trilho"><span class="ct-barra-preenchida ct-barra-preenchida--entrada" style="width:{{ m.largura }}%"></span></span>
-            <span class="ct-barra-valor">{{ m.valor|brl_curto }}</span>
-          </li>
-        {% endfor %}
-      </ul>
-    </div>
-  </section>
-
-  <section class="ct-grid ct-grid--graficos">
-    <div class="ct-card ct-card--flush">
-      <div class="ct-card-head"><h2>Por responsável</h2></div>
+  {% if realm %}
+  <section class="ct-card ct-card--flush">
+    <div class="ct-card-head"><h2>Etapas do realm {{ realm }}</h2><a class="ct-btn ct-btn--pequeno" href="/app/conferir/">Conferir tudo</a></div>
+    <div class="ct-table-wrap">
       <table class="ct-table">
-        <thead><tr><th>Responsável</th><th class="ct-num">Ganhas</th><th class="ct-num">Vendido</th><th class="ct-num">Conversão</th><th class="ct-num">Pipeline</th></tr></thead>
         <tbody>
-          {% for r in por_responsavel %}
-            <tr><td>{{ r.nome }}</td><td class="ct-num">{{ r.ganhas }}</td><td class="ct-num">{{ r.valor_ganho|brl }}</td><td class="ct-num">{{ r.conversao|pct }}</td><td class="ct-num">{{ r.pipeline|brl }}</td></tr>
-          {% empty %}
-            <tr><td colspan="5" class="ct-empty">Sem propostas no período.</td></tr>
+          {% for e in etapas %}
+            <tr>
+              <td style="width:2.5em"><span class="ct-badge {% if e.feito %}ct-badge--ok{% else %}ct-badge--alerta{% endif %}">{% if e.feito %}<i class="fa-solid fa-check"></i>{% else %}{{ e.numero }}{% endif %}</span></td>
+              <td><a href="{{ e.href }}"><strong>{{ e.numero }} · {{ e.titulo }}</strong></a><span class="ct-sub">{{ e.resumo }}</span></td>
+              <td class="ct-num"><a class="ct-btn ct-btn--pequeno" href="{{ e.href }}">{% if e.feito %}Revisar{% else %}Fazer{% endif %}</a></td>
+            </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
-    <div class="ct-card">
-      <div class="ct-card-head ct-card-head--solto"><h2>Motivos de perda</h2></div>
-      {% if motivos_perda %}
-      <ul class="ct-barras">
-        {% for m in motivos_perda %}
-          <li class="ct-barra-linha">
-            <span class="ct-barra-nome">{{ m.rotulo }}</span>
-            <span class="ct-barra-trilho"><span class="ct-barra-preenchida ct-barra-preenchida--outros" style="width:{{ m.largura }}%"></span></span>
-            <span class="ct-barra-valor">{{ m.qtd }} · {{ m.valor|brl_curto }}</span>
-          </li>
-        {% endfor %}
-      </ul>
-      {% else %}<p class="ct-empty">Nenhuma perda no período.</p>{% endif %}
+  </section>
+  {% endif %}
+
+  <section class="ct-card ct-card--flush">
+    <div class="ct-card-head"><h2>Realms</h2></div>
+    <div class="ct-table-wrap">
+      <table class="ct-table">
+        <thead><tr><th>Realm</th><th class="ct-num">Apps</th><th class="ct-num">Grupos</th><th class="ct-num">Provedores SAML</th><th></th></tr></thead>
+        <tbody>
+          {% for r in resumo %}
+            <tr>
+              <td class="ct-codigo">{{ r.realm }}{% if r.realm == realm %} <span class="ct-badge ct-badge--ok">ativo</span>{% endif %}</td>
+              <td class="ct-num">{{ r.apps }}</td>
+              <td class="ct-num">{{ r.grupos }}</td>
+              <td class="ct-num">{{ r.provedores }}</td>
+              <td class="ct-num">
+                {% if r.realm != realm %}
+                <form method="post" action="/app/realm-ativo/">{% csrf_token %}<input type="hidden" name="realm" value="{{ r.realm }}"><input type="hidden" name="next" value="/app/painel/"><button class="ct-btn ct-btn--pequeno">Usar</button></form>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="5" class="ct-empty">Só existe o realm master. <a href="/app/realm/?novo=1">Crie o realm dos apps</a>.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
   </section>
 
-  <p class="ct-note">Pipeline: valor das propostas enviadas e em negociação. Previsão ponderada: soma de valor × probabilidade das abertas. Conversão: ganhas ÷ (ganhas + perdidas + expiradas) fechadas no período; canceladas ficam de fora.</p>
+  <section class="ct-card ct-card--flush">
+    <div class="ct-card-head"><h2>Últimas ações</h2><a class="ct-btn ct-btn--pequeno" href="/app/historico/">Histórico</a></div>
+    <div class="ct-table-wrap">
+      <table class="ct-table ct-table--compacta">
+        <tbody>
+          {% for a in recentes %}
+            <tr>
+              <td class="ct-nowrap">{{ a.criado_em|date:"d/m/Y H:i" }}</td>
+              <td><a href="/app/historico/?id={{ a.pk }}">{{ a.get_etapa_display }}</a> <span class="ct-codigo">{{ a.realm }}</span></td>
+              <td>{% if not a.sucesso %}<span class="ct-badge ct-badge--alerta">erro</span>{% elif a.simulacao %}<span class="ct-badge">simulação</span>{% else %}<span class="ct-badge ct-badge--ok">aplicado</span>{% endif %}</td>
+              <td class="ct-note">{{ a.usuario|nome_usuario }}</td>
+            </tr>
+          {% empty %}
+            <tr><td class="ct-empty">Nada simulado ou aplicado ainda.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
 </div>
 {% endblock main %}

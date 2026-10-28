@@ -1,11 +1,11 @@
 JAZZMIN_SETTINGS = {
     # title of the window (Will default to current_admin_site.site_title if absent or None)
-    "site_title": "CommercialProposal Admin",
+    "site_title": "Assistente Keycloak Admin",
     # "custom_css": "core/css/custom_admin.css",
     # Title on the login screen (19 chars max) (defaults to current_admin_site.site_header if absent or None)
-    "site_header": "CommercialProposal",
+    "site_header": "Assistente Keycloak",
     # Title on the brand (19 chars max) (defaults to current_admin_site.site_header if absent or None)
-    "site_brand": "CommercialProposal",
+    "site_brand": "Assistente Keycloak",
     # Logo to use for your site, must be present in static files, used for brand on top left
     # "site_logo": "books/img/logo.png",
     # Logo to use for your site, must be present in static files, used for login form logo (defaults to site_logo)
@@ -17,7 +17,7 @@ JAZZMIN_SETTINGS = {
     # Relative path to a favicon for your site, will default to site_logo if absent (ideally 32x32 px)
     "site_icon": None,
     # Welcome text on the login screen
-    "welcome_sign": "Bem-vindo ao CommercialProposal",
+    "welcome_sign": "Bem-vindo ao Assistente Keycloak",
     # Copyright on the footer
     "copyright": "Estatcamp Group",
     # List of model admins to search from the search bar, search bar omitted if excluded
@@ -77,16 +77,13 @@ JAZZMIN_SETTINGS = {
     "hide_models": [],
     # List of apps (and/or models) to base side menu ordering off of (does not need to contain all apps/models)
     "order_with_respect_to": [
-        "commercial",
-        "commercial.proposta",
-        "commercial.cliente",
-        "commercial.itemcatalogo",
-        "commercial.empresa",
+        "keycloak",
+        "keycloak.aplicacao",
         "auth",
     ],
     # Custom links to append to app groups, keyed on app name
     "custom_links": {
-        "commercial": [
+        "keycloak": [
             {"name": "Abrir o sistema", "url": "/app/", "icon": "fas fa-arrow-right"},
         ]
     },
@@ -98,12 +95,7 @@ JAZZMIN_SETTINGS = {
         "auth.Group": "fas fa-users",
         "django.contrib.admin": "fas fa-tools",  # App Admin
         "django.contrib.sessions": "fas fa-hourglass-half",  # App Sessions
-        "commercial.empresa": "fas fa-building",
-        "commercial.acessoempresa": "fas fa-key",
-        "commercial.cliente": "fas fa-address-book",
-        "commercial.itemcatalogo": "fas fa-box-open",
-        "commercial.proposta": "fas fa-file-signature",
-        "commercial.motivoperda": "fas fa-thumbs-down",
+        "keycloak.aplicacao": "fas fa-clipboard-list",
     },
     # Icons that are used when one is not manually specified
     "default_icon_parents": "fas fa-chevron-circle-right",
