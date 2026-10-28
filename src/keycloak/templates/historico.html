@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load custom_filters %}
+{% block title %}Histórico | Assistente Keycloak{% endblock %}
+
+{% block main %}
+<div class="ct-page">
+  <header class="ct-header">
+    <div>
+      <p class="ct-eyebrow">Manutenção</p>
+      <h1 class="ct-title">Histórico</h1>
+      <p class="ct-subtitle">Cada simulação e cada aplicação, com o plano completo. O Keycloak não guarda quem mudou o quê pela Admin API; este histórico guarda.</p>
+    </div>
+  </header>
+
+  {% if detalhe %}
+    <div class="ct-info">{{ detalhe }} · {{ detalhe.usuario|nome_usuario }} · <code>{{ detalhe.servidor }}</code> · <a href="?">fechar</a></div>
+    {% if detalhe.erro %}<div class="ct-alert">{{ detalhe.erro }}</div>{% endif %}
+    {% include "plano.html" %}
+  {% endif %}
+
+  {% if pagina %}
+  <form method="get" class="ct-card ct-filters">
+    <div class="ct-field"><label for="realm">Realm</label><select id="realm" name="realm"><option value="">Todos</option>{% for r in realms_historico %}<option value="{{ r }}" {% if r == filtro_realm %}selected{% endif %}>{{ r }}</option>{% endfor %}</select></div>
+    <label class="ct-field ct-field--check"><input type="checkbox" name="aplicadas" value="1" {% if aplicadas %}checked{% endif %}> Só aplicadas</label>
+    <button class="ct-btn ct-btn--primario">Filtrar</button>
+  </form>
+
+  <section class="ct-card ct-card--flush">
+    <div class="ct-table-wrap">
+      <table class="ct-table">
+        <thead><tr><th>Quando</th><th>Etapa</th><th>Realm</th><th>Usuário</th><th>Resultado</th><th class="ct-num">Mudanças</th></tr></thead>
+        <tbody>
+          {% for a in pagina %}
+            <tr{% if not a.sucesso %} class="ct-row-alerta"{% endif %}>
+              <td class="ct-nowrap"><a href="?id={{ a.pk }}{% if filtro_realm %}&realm={{ filtro_realm }}{% endif %}">{{ a.criado_em|date:"d/m/Y H:i" }}</a></td>
+              <td>{{ a.get_etapa_display }}</td>
+              <td class="ct-codigo">{{ a.realm }}</td>
+              <td>{{ a.usuario|nome_usuario }}</td>
+              <td>{% if not a.sucesso %}<span class="ct-badge ct-badge--alerta">erro</span>{% elif a.simulacao %}<span class="ct-badge">simulação</span>{% else %}<span class="ct-badge ct-badge--ok">aplicado</span>{% endif %}</td>
+              <td class="ct-num">{{ a.mudancas }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6" class="ct-empty">Nada neste filtro.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% if pagina.has_other_pages %}
+    <nav class="ct-pagination">
+      {% if pagina.has_previous %}<a class="ct-btn ct-btn--pequeno" href="?pagina={{ pagina.previous_page_number }}&realm={{ filtro_realm }}{% if aplicadas %}&aplicadas=1{% endif %}">← Anterior</a>{% endif %}
+      <span class="ct-note">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+      {% if pagina.has_next %}<a class="ct-btn ct-btn--pequeno" href="?pagina={{ pagina.next_page_number }}&realm={{ filtro_realm }}{% if aplicadas %}&aplicadas=1{% endif %}">Próxima →</a>{% endif %}
+    </nav>
+  {% endif %}
+  {% endif %}
+</div>
+{% endblock main %}

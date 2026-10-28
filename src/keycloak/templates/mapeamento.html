@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load custom_filters %}
+{% block title %}Grupos do SSO | Assistente Keycloak{% endblock %}
+
+{% block main %}
+<div class="ct-page">
+  <header class="ct-header">
+    <div>
+      <p class="ct-eyebrow">Etapa 4</p>
+      <h1 class="ct-title">Grupos do SSO → grupos do Keycloak</h1>
+      <p class="ct-subtitle">O Keycloak só sabe dos grupos que o SSO manda na asserção SAML. Cada grupo marcado ganha um mapper <em>Advanced Attribute to Group</em> com Sync mode <code>Force</code>: quem sai do grupo no SSO sai do grupo no Keycloak no próximo login.</p>
+    </div>
+  </header>
+
+  {% if not formset %}
+    <div class="ct-alert">Cadastre primeiro o provedor SAML na <a href="/app/sso/">etapa 3</a>.</div>
+  {% else %}
+    {% if provedores|length > 1 %}
+    <nav class="ct-tabs">{% for p in provedores %}<a class="ct-tab {% if p.alias == alias %}ct-tab--ativa{% endif %}" href="?alias={{ p.alias }}">{{ p.alias }}</a>{% endfor %}</nav>
+    {% endif %}
+
+    {% include "plano.html" %}
+
+    <form method="post" class="ct-card ct-card--flush">
+      {% csrf_token %}<input type="hidden" name="realm_tela" value="{{ realm }}">
+      {{ formset.management_form }}
+      <div class="ct-table-wrap">
+        <table class="ct-table">
+          <thead><tr><th>Mapear</th><th>Grupo do Keycloak</th><th>Roles</th><th>Valor no SSO</th><th>Atributo (Key)</th></tr></thead>
+          <tbody>
+            {% for f in formset %}
+              <tr>
+                <td>{{ f.grupo }}{{ f.ativo }}</td>
+                <td class="ct-codigo">{{ f.grupo.value }}</td>
+                <td class="ct-note">{{ grupos|chave:f.grupo.value|join:", "|default:"—" }}</td>
+                <td>{{ f.valor }}{% for e in f.valor.errors %}<span class="ct-neg ct-note">{{ e }}</span>{% endfor %}</td>
+                <td><input type="text" name="{{ f.chave.html_name }}" value="{{ f.chave.value|default:'' }}" list="chaves-grupos">{% for e in f.chave.errors %}<span class="ct-neg ct-note">{{ e }}</span>{% endfor %}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="5" class="ct-empty">Nenhum grupo no realm. Crie na <a href="/app/grupos/">etapa 2</a>.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <datalist id="chaves-grupos"><option value="groups"><option value="{{ chave_longa }}"></datalist>
+      <div style="padding:0 16px 16px">
+        <p class="ct-note">Desmarcar remove o mapper. Valor e atributo precisam bater <strong>exatamente</strong> (maiúsculas inclusive) com o que chega na asserção.</p>
+        {% include "botoes_plano.html" %}
+      </div>
+    </form>
+
+    <section class="ct-card">
+      <h2>Que valor usar</h2>
+      <table class="ct-table ct-table--compacta">
+        <thead><tr><th>SSO</th><th>Atributo (Key)</th><th>Valor</th></tr></thead>
+        <tbody>
+          <tr><td>Entra, com <em>Customize the name of the group claim</em> = <code>groups</code></td><td><code>groups</code></td><td rowspan="2">o nome do grupo (<em>Cloud-only group display names</em> ou <em>sAMAccountName</em>), ou o <em>Object ID</em> do grupo se o claim manda <em>Group ID</em></td></tr>
+          <tr><td>Entra, sem customizar o nome</td><td><code>{{ chave_longa }}</code></td></tr>
+          <tr><td>Google Workspace e Okta</td><td><code>groups</code></td><td>o nome do grupo</td></tr>
+        </tbody>
+      </table>
+      <p class="ct-note">Para conferir: ponha um usuário de teste num grupo no SSO, faça login e procure-o em <a href="/app/conferir/">Conferir</a>. Se o grupo não aparecer, veja a asserção com a extensão <em>SAML-tracer</em> ou com <code>KC_LOG_LEVEL=debug</code>.</p>
+    </section>
+  {% endif %}
+</div>
+{% endblock main %}

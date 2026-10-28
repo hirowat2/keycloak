@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Migração da VM | Assistente Keycloak{% endblock %}
+
+{% block main %}
+<div class="ct-page">
+  <header class="ct-header">
+    <div>
+      <p class="ct-eyebrow">Manutenção</p>
+      <h1 class="ct-title">Migrar o Keycloak de uma VM</h1>
+      <p class="ct-subtitle">Traz todos os realms de um Keycloak em container numa VM. A versão da VM precisa ser igual ou mais antiga que a daqui (26.8.1). Detalhes e figuras no README_migracao_vm.md.</p>
+    </div>
+  </header>
+
+  <form method="get" class="ct-card ct-filters">
+    {% for f in vm_form %}<div class="ct-field" style="flex:1;min-width:200px"><label for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}</div>{% endfor %}
+    <button class="ct-btn ct-btn--primario">Gerar os comandos</button>
+  </form>
+
+  <section class="ct-card">
+    <h2>1 · Na VM: gerar o arquivo</h2>
+    <p class="ct-note">O <code>scripts/exportar_vm.sh</code> faz o passo 1 do guia (<code>docker inspect</code>) e escolhe o caminho: com Postgres gera <code>keycloak.dump</code> sem parar nada (B); com H2 ou outro banco gera <code>kc-export.tgz</code> (A). <strong>Com H2 o container fica parado ~1 min</strong> e volta sozinho. Para forçar o A com Postgres, acrescente <code>--realms</code>.</p>
+    <div class="ct-card-head ct-card-head--solto"><strong>Rode na sua máquina</strong><button type="button" class="ct-btn ct-btn--pequeno" data-copiar="cmd-vm"><i class="fa-regular fa-copy"></i> Copiar</button></div>
+    <pre class="ct-codigo" id="cmd-vm" style="white-space:pre-wrap">{{ comandos.vm|join:"
+" }}</pre>
+    <p class="ct-note">⚠️ Com H2 sem volume (<code>Mounts</code> vazio), os dados só existem dentro do container: não rode <code>docker rm</code>, <code>compose down</code> nem <code>--force-recreate</code> na VM antes de terminar.</p>
+  </section>
+
+  <div class="ct-grid ct-grid--2">
+    <section class="ct-card">
+      <h2>2A · Saiu <code>kc-export.tgz</code></h2>
+      <p class="ct-note">Importa com <code>--override false</code>: o <code>master</code> e os realms daqui ficam como estão. O admin do console continua o daqui.</p>
+      <div class="ct-card-head ct-card-head--solto"><span></span><button type="button" class="ct-btn ct-btn--pequeno" data-copiar="cmd-a"><i class="fa-regular fa-copy"></i> Copiar</button></div>
+      <pre class="ct-codigo" id="cmd-a" style="white-space:pre-wrap">{{ comandos.a|join:"
+" }}</pre>
+    </section>
+    <section class="ct-card">
+      <h2>2B · Saiu <code>keycloak.dump</code></h2>
+      <p class="ct-note"><strong class="ct-neg">Apaga o banco do Keycloak daqui</strong> (o alvo pede confirmação) e traz tudo da VM, inclusive o <code>master</code>: o admin do console passa a ser o da VM.</p>
+      <div class="ct-card-head ct-card-head--solto"><span></span><button type="button" class="ct-btn ct-btn--pequeno" data-copiar="cmd-b"><i class="fa-regular fa-copy"></i> Copiar</button></div>
+      <pre class="ct-codigo" id="cmd-b" style="white-space:pre-wrap">{{ comandos.b|join:"
+" }}</pre>
+    </section>
+  </div>
+
+  {% include "plano.html" %}
+
+  <form method="post" class="ct-card ct-cadastro">
+    <h2>3 · Host novo no realm {{ realm }}</h2>
+    <p class="ct-note">Apaga a <em>Frontend URL</em> herdada da VM (senão o realm continua mandando o navegador para o host antigo) e troca o host antigo nos <em>redirect URIs</em>, <em>post logout</em> e <em>web origins</em> dos clients. Depois, ajuste <code>KEYCLOAK_HOST</code> nos apps. Repita para cada realm migrado.</p>
+    {% csrf_token %}<input type="hidden" name="realm_tela" value="{{ realm }}">
+    <div class="ct-cadastro-campos">
+      {% for f in host_form %}<div class="ct-field"><label for="{{ f.id_for_label }}">{{ f.label }} *</label>{{ f }}{% if f.help_text %}<span class="ct-note">{{ f.help_text }}</span>{% endif %}{% for e in f.errors %}<span class="ct-neg ct-note">{{ e }}</span>{% endfor %}</div>{% endfor %}
+    </div>
+    {% include "botoes_plano.html" %}
+  </form>
+
+  <section class="ct-card">
+    <div class="ct-card-head ct-card-head--solto">
+      <h2>4 · Usuários sem e-mail ou nome</h2>
+      <a class="ct-btn ct-btn--pequeno" href="?incompletos=1">Procurar no realm {{ realm }}</a>
+    </div>
+    <p class="ct-note">No Keycloak 24+, o perfil exige e-mail, nome e sobrenome: esses usuários veem uma tela para completar o cadastro no 1º login, e fluxos sem tela falham com <code>Account is not fully set up</code>. Preencha pelo console antes de liberar.</p>
+    {% if incompletos is not None %}
+      <div class="ct-table-wrap">
+        <table class="ct-table ct-table--compacta">
+          <thead><tr><th>Usuário</th><th>Falta</th></tr></thead>
+          <tbody>
+            {% for u in incompletos %}
+              <tr><td class="ct-codigo">{{ u.username }}</td><td>{{ u.faltam|join:", " }}</td></tr>
+            {% empty %}
+              <tr><td colspan="2" class="ct-empty">Todos os usuários têm e-mail, nome e sobrenome.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </section>
+
+  <section class="ct-info">
+    <strong>5 · Só desligue a VM depois de validar:</strong> confira os realms no <a href="/app/painel/">painel</a>, faça login num app com um usuário conhecido (a senha é a mesma da VM) e avise que todos precisam logar de novo. Depois apague os arquivos, aqui e na VM:
+    <pre class="ct-codigo" style="white-space:pre-wrap;margin-top:6px">{{ comandos.limpar|join:"
+" }}</pre>
+  </section>
+</div>
+{% endblock main %}

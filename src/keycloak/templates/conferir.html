@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Conferir | Assistente Keycloak{% endblock %}
+
+{% block main %}
+<div class="ct-page">
+  <header class="ct-header">
+    <div>
+      <p class="ct-eyebrow">Etapa 5</p>
+      <h1 class="ct-title">Conferir o realm {{ realm }}</h1>
+      <p class="ct-subtitle">O realm comparado ao guia, item a item. Os números são as seções do README_sso.md.</p>
+    </div>
+    <a class="ct-btn" href="?exportar=1"><i class="fa-solid fa-download"></i> JSON para versionar</a>
+  </header>
+
+  <div class="ct-kpis">
+    <div class="ct-kpi"><span class="ct-kpi-label">Itens conferidos</span><span class="ct-kpi-value">{{ total }}</span></div>
+    <div class="ct-kpi"><span class="ct-kpi-label">De acordo com o guia</span><span class="ct-kpi-value ct-pos">{{ ok }}</span></div>
+    <div class="ct-kpi"><span class="ct-kpi-label">Para acertar</span><span class="ct-kpi-value {% if pendentes %}ct-neg{% endif %}">{{ pendentes }}</span></div>
+  </div>
+
+  {% for secao, itens in secoes %}
+  <section class="ct-card ct-card--flush">
+    <div class="ct-card-head"><h2>{{ secao }}</h2></div>
+    <div class="ct-table-wrap">
+      <table class="ct-table ct-table--compacta">
+        <tbody>
+          {% for v in itens %}
+            <tr{% if not v.ok %} class="ct-row-alerta"{% endif %}>
+              <td style="width:2em">{% if v.ok %}<i class="fa-solid fa-circle-check ct-pos"></i>{% else %}<i class="fa-solid fa-circle-xmark ct-neg"></i>{% endif %}</td>
+              <td>{{ v.item }}</td>
+              <td class="ct-note">{{ v.detalhe }}</td>
+              <td class="ct-note ct-nowrap">{{ v.referencia }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endfor %}
+
+  <section class="ct-card">
+    <h2>Roles de um usuário</h2>
+    <p class="ct-note">As roles efetivas são as que vão no token (seção 3.3). Teste o login em <a href="{{ conta }}" target="_blank" rel="noopener">{{ conta }}</a>.</p>
+    <form method="get" class="ct-filters" style="margin-top:8px">
+      <div class="ct-field" style="flex:1;min-width:220px"><label for="usuario">Usuário ou e-mail</label><input type="search" id="usuario" name="usuario" value="{{ busca }}" placeholder="maria.souza@empresa.com.br"></div>
+      <button class="ct-btn ct-btn--primario">Procurar</button>
+    </form>
+    {% if usuarios is not None %}
+      <div class="ct-table-wrap">
+        <table class="ct-table ct-table--compacta">
+          <thead><tr><th>Usuário</th><th>Grupos</th><th>Roles efetivas</th><th>SSO</th></tr></thead>
+          <tbody>
+            {% for u in usuarios %}
+              <tr>
+                <td><strong>{{ u.username }}</strong><span class="ct-sub">{{ u.email|default:"sem e-mail" }}</span></td>
+                <td>{{ u.grupos|join:", "|default:"—" }}</td>
+                <td>{{ u.roles|join:", "|default:"nenhuma: não entra em app com KEYCLOAK_REQUIRED_ROLE" }}{% if u.roles_diretas %}<span class="ct-sub ct-neg">role direta no usuário: {{ u.roles_diretas|join:", " }} (prefira grupos)</span>{% endif %}</td>
+                <td>{{ u.provedores|join:", "|default:"local" }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="4" class="ct-empty">Nenhum usuário encontrado. Usuários do SSO só aparecem depois do primeiro login.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </section>
+
+  {% if envs %}
+  <section class="ct-card">
+    <h2>.env de cada app</h2>
+    <p class="ct-note">Seções 1.8 e 3.1. Sem <code>KEYCLOAK_REQUIRED_ROLE</code>, qualquer usuário que logar no realm entra no app.</p>
+    {% for cid, texto in envs.items %}
+      <div class="ct-card-head ct-card-head--solto"><strong class="ct-codigo">{{ cid }}</strong><button type="button" class="ct-btn ct-btn--pequeno" data-copiar="env-{{ forloop.counter }}"><i class="fa-regular fa-copy"></i> Copiar</button></div>
+      <pre class="ct-codigo" id="env-{{ forloop.counter }}" style="white-space:pre-wrap;margin:0 0 12px">{{ texto }}</pre>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  <section class="ct-info">
+    <strong>Versionar:</strong> o JSON acima traz as configurações, as roles, os grupos, os clients dos apps, os provedores e os mappers, sem usuários, senhas, secrets nem chaves. Salve em <code>realm/</code> (troque o host pelos <code>${...}</code> se quiser reaproveitar). Ele só é importado quando o realm ainda não existe no banco.
+  </section>
+</div>
+{% endblock main %}

@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}SSO corporativo | Assistente Keycloak{% endblock %}
+
+{% block main %}
+<div class="ct-page">
+  <header class="ct-header">
+    <div>
+      <p class="ct-eyebrow">Etapa 3</p>
+      <h1 class="ct-title">SSO corporativo (SAML)</h1>
+      <p class="ct-subtitle">O Keycloak é o Service Provider; o Entra ID, o Google ou o Okta é o Identity Provider. Ordem: escolha o alias → mande as URLs abaixo ao time do SSO → receba a URL de metadata → simule e aplique.</p>
+    </div>
+    {% if provedores %}<a class="ct-btn" href="?novo=1">+ Outro provedor</a>{% endif %}
+  </header>
+
+  {% if provedores|length > 1 %}
+  <nav class="ct-tabs">
+    {% for p in provedores %}<a class="ct-tab {% if atual and p.alias == atual.alias %}ct-tab--ativa{% endif %}" href="?alias={{ p.alias }}">{{ p.alias }}</a>{% endfor %}
+  </nav>
+  {% endif %}
+
+  {% include "plano.html" %}
+
+  <section class="ct-card ct-card--flush">
+    <div class="ct-card-head"><h2>1 · O que mandar para o time do SSO</h2></div>
+    <div class="ct-table-wrap">
+      <table class="ct-table ct-table--compacta">
+        <thead><tr><th>Campo no SSO</th><th>Valor</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>Entity ID / Identifier / Audience</td><td class="ct-codigo" id="url-entity" data-modelo="{{ modelo.entity_id }}">{{ urls.entity_id }}</td><td><button type="button" class="ct-btn ct-btn--pequeno" data-copiar="url-entity"><i class="fa-regular fa-copy"></i> Copiar</button></td></tr>
+          <tr><td>ACS URL / Reply URL / Single sign-on URL</td><td class="ct-codigo" id="url-acs" data-modelo="{{ modelo.acs }}">{{ urls.acs }}</td><td><button type="button" class="ct-btn ct-btn--pequeno" data-copiar="url-acs"><i class="fa-regular fa-copy"></i> Copiar</button></td></tr>
+          <tr><td>Logout URL (opcional)</td><td class="ct-codigo" id="url-logout" data-modelo="{{ modelo.logout }}">{{ urls.logout }}</td><td><button type="button" class="ct-btn ct-btn--pequeno" data-copiar="url-logout"><i class="fa-regular fa-copy"></i> Copiar</button></td></tr>
+          <tr><td>Metadata do SP (se o SSO aceitar importar)</td><td class="ct-codigo" id="url-descriptor" data-modelo="{{ modelo.descriptor }}">{{ urls.descriptor }}</td><td><button type="button" class="ct-btn ct-btn--pequeno" data-copiar="url-descriptor"><i class="fa-regular fa-copy"></i> Copiar</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="ct-note" style="padding:0 16px 12px">O metadata do SP só existe depois de aplicar. O SSO não acessa o Keycloak pela rede: só redireciona o navegador para ele.</p>
+  </section>
+
+  <section class="ct-card">
+    <h2>2 · No SSO</h2>
+    <details {% if tipo == "entra" %}open{% endif %}>
+      <summary><strong>Microsoft Entra ID</strong></summary>
+      <ol class="ct-note">
+        <li><em>Enterprise applications → New application → Create your own application → Integrate any other application (non-gallery)</em>.</li>
+        <li><strong>Single sign-on → SAML → Basic SAML Configuration</strong>: <em>Identifier (Entity ID)</em> e <em>Reply URL</em> com os valores acima.</li>
+        <li><strong>Attributes &amp; Claims</strong>: mantenha <code>emailaddress</code>, <code>givenname</code>, <code>surname</code> e o <em>Unique User Identifier</em> (<code>user.userprincipalname</code>). Em <em>Add a group claim</em>: <em>Groups assigned to the application</em>, <em>Source attribute</em> <code>Cloud-only group display names</code>, marque <em>Customize the name of the group claim</em> com Name <code>groups</code> e Namespace vazio, e deixe <em>Emit groups as role claims</em> desmarcado.</li>
+        <li><strong>Groups → New group</strong>: um grupo de segurança (<em>Security</em>) por perfil, com o nome <strong>idêntico</strong> ao grupo da etapa 2.</li>
+        <li><strong>Users and groups</strong>: atribua só esses grupos (exige Entra ID P1/P2). Em <strong>Properties</strong>: <em>Assignment required?</em> = <code>Yes</code>.</li>
+        <li><strong>SAML Certificates</strong>: copie a <strong>App Federation Metadata Url</strong> e cole abaixo.</li>
+      </ol>
+    </details>
+    <details {% if tipo == "google" %}open{% endif %}>
+      <summary><strong>Google Workspace</strong></summary>
+      <ol class="ct-note">
+        <li><em>Admin console → Apps → Web and mobile apps → Add app → Add custom SAML app</em>.</li>
+        <li>Em <em>Google Identity Provider details</em>, baixe o <strong>IdP metadata</strong> (cole o XML abaixo).</li>
+        <li><em>Service provider details</em>: ACS URL e Entity ID acima, <em>Name ID format</em> <code>EMAIL</code>, <em>Name ID</em> <code>Basic Information &gt; Primary email</code>.</li>
+        <li><em>Attribute mapping</em>: First name → <code>firstName</code>, Last name → <code>lastName</code>, Primary email → <code>email</code>; em <em>Group membership</em>, os grupos do app com App attribute <code>groups</code>.</li>
+        <li><em>User access</em>: ative o app só para os grupos ou unidades certas.</li>
+      </ol>
+    </details>
+    <details {% if tipo == "okta" or tipo == "outro" %}open{% endif %}>
+      <summary><strong>Okta, ADFS e outros</strong></summary>
+      <p class="ct-note">Use os valores acima, mande <code>email</code>, <code>firstName</code> e <code>lastName</code> como atributos e pegue a URL (ou o XML) de metadata. No Okta, em <em>Group Attribute Statements</em>: Name <code>groups</code>, filtro <em>Starts with</em> com o prefixo dos grupos.</p>
+    </details>
+  </section>
+
+  <form method="post" class="ct-card ct-cadastro" id="cadastro">
+    <h2>3 · No Keycloak</h2>
+    {% csrf_token %}<input type="hidden" name="realm_tela" value="{{ realm }}">
+    {% include "form_secoes.html" %}
+    <p class="ct-note">Sempre aplicado: Entity ID do Keycloak, <em>Principal type</em> <code>Subject NameID</code>, AuthnRequests e Assertions assinados, <em>Validate Signatures</em>, <em>Trust Email</em>, <em>Sync mode</em> <code>Force</code> e os mappers de e-mail, nome, sobrenome e username (<code>${ATTRIBUTE.email}</code>). Se o SSO trocar o certificado ("Invalid signature"), aplique de novo com a mesma URL.</p>
+    {% include "botoes_plano.html" %}
+  </form>
+
+  {% if atual %}
+  <section class="ct-info">
+    <strong>4 · Teste:</strong> abra <a href="{{ urls.entity_id }}/account" target="_blank" rel="noopener">{{ urls.entity_id }}/account</a> numa janela anônima e use o botão "Entrar com {{ atual.displayName }}". Depois, em <a href="/app/conferir/">Conferir</a>, procure o usuário: ele deve ter o vínculo com <code>{{ atual.alias }}</code>. Próximo passo: <a href="/app/mapeamento/?alias={{ atual.alias }}">mapear os grupos do SSO</a>.
+  </section>
+  {% endif %}
+</div>
+{% endblock main %}
+
+{% block extra_js %}
+<script>
+  // As URLs do SSO acompanham o alias digitado.
+  (function () {
+    const alias = document.getElementById("id_alias");
+    if (!alias) return;
+    alias.addEventListener("input", () => {
+      document.querySelectorAll("[data-modelo]").forEach((el) => {
+        el.textContent = el.dataset.modelo.replace("__ALIAS__", alias.value.trim() || "<alias>");
+      });
+    });
+  })();
+</script>
+{% endblock extra_js %}

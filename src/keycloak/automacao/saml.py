@@ -100,7 +100,7 @@ def _garantir_mapper(api: KeycloakAdmin, plano: Plano, realm: str, alias: str, e
         plano.registrar(OK, "mapper", nome)
 
 
-def _mappers(api: KeycloakAdmin, realm: str, alias: str) -> dict[str, dict]:
+def mappers(api: KeycloakAdmin, realm: str, alias: str) -> dict[str, dict]:
     return {m["name"]: m for m in api.get(f"/{seg(realm)}/identity-provider/instances/{seg(alias)}/mappers") or []}
 
 
@@ -188,7 +188,7 @@ def aplicar_provedor(api: KeycloakAdmin, realm: str, host: str, provedor: Proved
         else:
             plano.registrar(OK, "provedor SAML", alias)
 
-    existentes = {} if (atual is None) else _mappers(api, realm, alias)
+    existentes = {} if (atual is None) else mappers(api, realm, alias)
     for campo, atributo in PROVEDORES[provedor.tipo]["atributos"].items():
         config_mapper = {"syncMode": "INHERIT", "attribute.name": atributo, "user.attribute": campo}
         _garantir_mapper(api, plano, realm, alias, existentes, campo, MAPPER_ATRIBUTO, config_mapper)
@@ -202,7 +202,7 @@ def aplicar_provedor(api: KeycloakAdmin, realm: str, host: str, provedor: Proved
 def ler_mapeamento(api: KeycloakAdmin, realm: str, alias: str) -> dict[str, MapeamentoGrupo]:
     """Mappers de grupo já cadastrados, pelo nome do grupo do Keycloak."""
     mapeados = {}
-    for mapper in _mappers(api, realm, alias).values():
+    for mapper in mappers(api, realm, alias).values():
         if mapper.get("identityProviderMapper") != MAPPER_GRUPO:
             continue
         config = mapper.get("config", {})
@@ -215,7 +215,7 @@ def ler_mapeamento(api: KeycloakAdmin, realm: str, alias: str) -> dict[str, Mape
 def aplicar_mapeamento(api: KeycloakAdmin, realm: str, alias: str, itens: list[MapeamentoGrupo], simular: bool) -> Plano:
     """Seção 4.4: um mapper "Advanced Attribute to Group" por grupo, com Sync mode Force."""
     plano = Plano(simular)
-    existentes = _mappers(api, realm, alias)
+    existentes = mappers(api, realm, alias)
     caminho = f"/{seg(realm)}/identity-provider/instances/{seg(alias)}/mappers"
     for item in itens:
         if not item.ativo:
