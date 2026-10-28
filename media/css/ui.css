@@ -377,3 +377,32 @@ html.dark {
 .ct-card summary { cursor: pointer; padding: 4px 0; }
 .ct-card details ol { margin: 6px 0 4px; padding-left: 22px; }
 .ct-card pre.ct-codigo { background: var(--ct-muted); border: 1px solid var(--ct-border); border-radius: 8px; padding: 10px 12px; overflow-x: auto; }
+
+/* ------------------------------------------------ metodologia */
+.mt-layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 20px; align-items: start; }
+.mt-indice { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.mt-indice a { color: var(--ct-text-2); text-decoration: none; padding: 5px 8px; border-radius: 6px; }
+.mt-indice a:hover { background: var(--ct-muted); color: var(--ct-text); }
+.mt-conteudo { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.mt-secao { scroll-margin-top: 16px; }
+.mt-secao > p, .mt-secao .ct-card > p { max-width: 80ch; line-height: 1.55; }
+.mt-secao pre.mermaid { background: transparent; border: 0; margin: 12px 0; text-align: center; overflow-x: auto; }
+.mt-subtitulo { font-size: 14px; margin: 18px 0 6px; }
+.mt-tabela { margin-top: 8px; }
+.mt-tabela td { vertical-align: top; }
+
+.mt-passo { display: flex; flex-direction: column; gap: 12px; scroll-margin-top: 16px; }
+.mt-passo-texto { display: flex; gap: 12px; align-items: flex-start; }
+.mt-passo-texto h3 { margin: 0 0 4px; font-size: 15px; }
+.mt-passo-texto p { margin: 0 0 8px; max-width: 90ch; line-height: 1.5; }
+.mt-numero { flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--ct-accent); color: #fff; font-weight: 700; display: grid; place-items: center; }
+.mt-figura { display: block; border: 1px solid var(--ct-border); border-radius: 10px; overflow: hidden; background: var(--ct-muted); }
+.mt-figura img { display: block; width: 100%; height: auto; max-height: 720px; object-fit: contain; object-position: top; }
+@media (max-width: 900px) {
+    .mt-layout { grid-template-columns: 1fr; }
+    .mt-indice { position: static; flex-direction: row; flex-wrap: wrap; }
+}
+.mt-indice .ct-eyebrow { margin: 10px 8px 2px; }
+.mt-indice .ct-eyebrow:first-child { margin-top: 0; }
+.mt-etapa { display: flex; flex-direction: column; gap: 12px; }
+.mt-etapa .mt-tabela th { width: 190px; text-align: left; color: var(--ct-text-2); font-weight: 600; white-space: nowrap; }

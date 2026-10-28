@@ -22,6 +22,12 @@ SECOES = [
         ],
     },
     {
+        "titulo": "Ajuda",
+        "itens": [
+            {"href": "/app/metodologia/", "label": "Metodologia", "icon": "fa-solid fa-book-open", "required_groups": GRUPOS_CONSULTA},
+        ],
+    },
+    {
         "titulo": "Sistema",
         "itens": [
             {"href": "/admin/", "label": "Administração", "icon": "fa-solid fa-gear", "required_groups": ["Admin"]},

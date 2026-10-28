@@ -38,6 +38,12 @@ def view(context, request, realm) -> dict[str, Any]:
         if formset.is_valid():
             desejado = {g["nome"]: g["roles"] for g in formset.cleaned_data if g.get("nome")}
             plano = executar(request, realm, Aplicacao.GRUPOS, lambda simular: servico.aplicar(cliente, realm, desejado, simular))
+            if plano is not None and not plano.simular:
+                # Estado novo do Keycloak, com linhas vazias para outros grupos
+                formset = GrupoFormSet(
+                    prefix="grupos", form_kwargs={"roles": roles},
+                    initial=[{"nome": nome, "roles": r} for nome, r in servico.ler_grupos(cliente, realm).items()],
+                )
     else:
         atuais = servico.ler_grupos(cliente, realm)
         sugestao = request.GET.get("sugestao") == "1" or not atuais

@@ -68,3 +68,15 @@ def test_limited_simula_mas_nao_aplica(usuario, monkeypatch) -> None:
     chamado = []
     assert web.executar(request, "automateflow", Aplicacao.GRUPOS, lambda simular: chamado.append(simular) or Plano(simular)) is None
     assert chamado == [] and not Aplicacao.objects.exists()
+
+
+def test_metodologia_tem_uma_secao_por_etapa(entrar) -> None:
+    from keycloak.screens.metodologia.view import ETAPAS
+
+    html = entrar("Limited").get("/app/metodologia/").content.decode()
+    for etapa in ["realm", "grupos", "sso", "mapeamento", "conferir", "migracao"]:
+        assert f'id="{etapa}"' in html and f'href="#{etapa}"' in html
+    # Diagramas com "{{" seriam lidos como variável do Django e quebrariam o Mermaid
+    assert all("{{" not in e["diagrama"] for e in ETAPAS) and 'T(["Teste de login' in html
+    # Todo print citado existe em media/metodologia (make prints)
+    assert html.count('class="ct-card mt-passo"') == sum(len(e["passos"]) for e in ETAPAS)

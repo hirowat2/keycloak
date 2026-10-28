@@ -43,6 +43,13 @@ class AppForm(forms.Form):
 AppFormSet = formset_factory(AppForm, extra=1)
 
 
+def _formularios(realm: str):
+    """Formulário com o estado atual do realm no Keycloak, mais uma linha vazia para outro app."""
+    dados = servico.ler_realm(api(), realm) or {}
+    form = RealmForm(initial={"realm": realm, "nome_exibicao": dados.get("displayName", "")})
+    return form, AppFormSet(prefix="apps", initial=[vars(a) for a in servico.ler_apps(api(), realm)])
+
+
 @com_realm(exige_realm=False)
 def view(context, request, realm) -> dict[str, Any]:
     novo = request.GET.get("novo") == "1" or realm is None
@@ -63,13 +70,12 @@ def view(context, request, realm) -> dict[str, Any]:
                 # O menu já mostra o realm novo, selecionado
                 request.session["realm"] = nome
                 context.update({"realm": nome, "realms": realms_disponiveis()})
-            novo = novo and not (plano and not plano.simular)
+                form, apps = _formularios(nome)
+                novo = False
     elif novo:
         form, apps = RealmForm(), AppFormSet(prefix="apps")
     else:
-        dados = servico.ler_realm(api(), realm) or {}
-        form = RealmForm(initial={"realm": realm, "nome_exibicao": dados.get("displayName", "")})
-        apps = AppFormSet(prefix="apps", initial=[vars(a) for a in servico.ler_apps(api(), realm)])
+        form, apps = _formularios(realm)
 
     if not novo:
         form.fields["realm"].widget.attrs["readonly"] = True

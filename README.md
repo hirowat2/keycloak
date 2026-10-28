@@ -22,7 +22,7 @@ make logs
 | Console do Keycloak: `https://keycloak.docker.localhost/admin` | o admin do realm **master** (`KC_ADMIN_USER`/`KC_ADMIN_PASSWORD`) |
 | Assistente: `https://keycloak-assistente.docker.localhost` | um usuário do realm `KC_REALM` com e-mail liberado (veja [Acesso ao assistente](#acesso-ao-assistente)). Localmente, o `KC_REALM_ADMIN_USER`/`KC_REALM_ADMIN_PASSWORD` |
 
-Outros alvos: `make down`, `make ps`, `make realm-export`, `make reset` e `make test`.
+Outros alvos: `make down`, `make ps`, `make realm-export`, `make reset`, `make test` e `make prints` (refaz os prints da tela Metodologia num realm de demonstração, que é apagado no fim; usa o Playwright pelo `npx`).
 
 ## O assistente
 
@@ -38,6 +38,7 @@ Cada etapa é um formulário que vale para o realm escolhido no menu lateral. **
 | **5 · Conferir** | Checklist do realm contra o guia, roles efetivas e vínculo com o SSO de um usuário, `.env` de cada app e o **JSON para versionar** (sem usuários, ids, secrets nem chaves) | SSO 1.8, 3.3, 4.5 |
 | **Migração da VM** | Comandos prontos para a VM e o destino, troca do host antigo (Frontend URL e URLs dos clients) e usuários sem e-mail ou nome | Migração |
 | **Histórico** | Cada simulação e aplicação, com filtro por realm | |
+| **Metodologia** | Como funciona: fluxos em Mermaid, as partes do código e uma seção por etapa com o passo a passo em prints | |
 
 O que acontece **dentro do SSO** (criar a aplicação SAML, os grupos e o claim de grupos no Entra, no Google ou no Okta) continua sendo feito no portal de cada um. A tela 3 mostra o roteiro.
 
@@ -71,6 +72,7 @@ src/
     ├── templates/<tela>.html
     └── management/commands/preparar_login.py
 scripts/exportar_vm.sh       # roda na VM antiga (migração)
+scripts/capturar_prints.cjs  # prints da tela Metodologia (make prints) → media/metodologia/
 ```
 
 ### Testes

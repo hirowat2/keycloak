@@ -9,7 +9,7 @@ ifneq (,$(wildcard ./.env))
 endif
 
 .PHONY: all install migrate createsuperuser startapp runserver test gunicorn clean secret env network compose up down logs ps \
-	build interact shell der realm-export reset importar-realms restaurar-dump \
+	build interact shell der prints realm-export reset importar-realms restaurar-dump \
 	k8s-secrets k8s-render k8s-apply k8s-status k8s-logs k8s-delete k8s-importar-realms k8s-restaurar-dump
 
 all: install compose
@@ -77,6 +77,12 @@ shell:
 	docker compose exec \
 		assistente \
 		python src/manage.py shell_plus
+
+# Prints da tela Metodologia (media/metodologia/), com o compose no ar. Usa um realm de demonstração e apaga no fim.
+PLAYWRIGHT_VERSION:=1.63.0
+prints:
+	@npx -y playwright@$(PLAYWRIGHT_VERSION) install chromium
+	@NODE_NO_WARNINGS=1 node scripts/capturar_prints.cjs
 
 der:
 	@if pacman -Qq graphviz >/dev/null 2>&1; then \

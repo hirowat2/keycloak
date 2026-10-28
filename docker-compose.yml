@@ -102,6 +102,9 @@ services:
       - KC_HEALTH_ENABLED=true
       - KC_METRICS_ENABLED=true
       - KC_LOG_LEVEL=${KC_LOG_LEVEL:-info}
+      # Um nó só: sem cluster. Senão, a cada container novo (ou dump restaurado) o Keycloak gasta ~20 s
+      # tentando entrar no "cluster" do nó antigo registrado no banco (JDBC_PING) antes de subir.
+      - KC_CACHE=local
       # Usados como placeholders em realm/*.json
       - KC_REALM=${KC_REALM:-automateflow}
       - KC_REALM_ADMIN_USER=${KC_REALM_ADMIN_USER:-admin}

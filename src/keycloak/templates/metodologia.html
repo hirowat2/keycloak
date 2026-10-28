@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% load custom_filters %}
+{% block title %}Metodologia | Assistente Keycloak{% endblock %}
+
+{% block main %}
+<div class="ct-page">
+  <header class="ct-header">
+    <div>
+      <p class="ct-eyebrow">Ajuda</p>
+      <h1 class="ct-title">Metodologia</h1>
+      <p class="ct-subtitle">Como o assistente transforma o README_sso.md e o README_migracao_vm.md em formulários: as peças, os fluxos, o código e o passo a passo com as telas.</p>
+    </div>
+  </header>
+
+  <div class="mt-layout">
+    <nav class="mt-indice" aria-label="Nesta página">
+      <p class="ct-eyebrow">Como funciona</p>
+      <a href="#visao">Visão geral</a>
+      <a href="#uso">Fluxo de uso</a>
+      <a href="#simular">Simular e aplicar</a>
+      <p class="ct-eyebrow">Etapas, com as telas</p>
+      {% for e in etapas %}<a href="#{{ e.id }}">{{ e.titulo }}</a>{% endfor %}
+      <p class="ct-eyebrow">Implementação</p>
+      <a href="#codigo">O código</a>
+      <a href="#login">Login e permissões</a>
+      <a href="#comandos">Comandos</a>
+    </nav>
+
+    <div class="mt-conteudo">
+      <section class="ct-card mt-secao" id="visao">
+        <h2>Visão geral</h2>
+        <p>O assistente é um app Django que fala com o Keycloak pela <strong>Admin REST API</strong>, com o admin do realm master. Ele não guarda configuração do Keycloak: lê o estado atual a cada tela e grava direto lá. O único dado próprio é o Histórico.</p>
+        <pre class="mermaid">
+flowchart LR
+    U([Administrador<br/>navegador])
+    subgraph Stack["docker compose / Kubernetes"]
+      A[Assistente<br/>Django]
+      K[Keycloak<br/>realms]
+      H[(Histórico)]
+    end
+    APPS[Apps<br/>atlas, linode, migrator]
+    SSO[SSO corporativo<br/>Entra / Google / Okta]
+
+    U -- "telas" --> A
+    A -- "Admin API<br/>token do master" --> K
+    A --- H
+    APPS -- "OIDC + PKCE" --> K
+    K -- "SAML 2.0" --> SSO
+    U -. "login OIDC<br/>(keycloak.js)" .-> K</pre>
+        <p class="ct-note">O que acontece <strong>dentro do SSO</strong> (aplicação SAML, grupos e claims no portal da Microsoft, do Google ou do Okta) não tem API comum: a etapa 3 entrega as URLs e o roteiro para o time do SSO.</p>
+      </section>
+
+      <section class="ct-card mt-secao" id="uso">
+        <h2>Fluxo de uso</h2>
+        <p>As etapas seguem a ordem do guia. Cada uma vale para o realm escolhido no menu lateral e pode ser revisada depois.</p>
+        <pre class="mermaid">
+flowchart TB
+    E1["<b>1 · Realm e apps</b><br/>realm, role ADMIN,<br/>um client + uma role por app"]
+    E2["<b>2 · Grupos e roles</b><br/>admins + um grupo por app"]
+    E3a["<b>3 · SSO</b><br/>copiar as URLs do SP"]
+    SSO1[["Time do SSO<br/>cria a aplicação SAML,<br/>os grupos e o claim groups"]]
+    E3b["<b>3 · SSO</b><br/>colar a URL de metadata<br/>e aplicar"]
+    E4["<b>4 · Grupos do SSO</b><br/>um mapper por grupo"]
+    T(["Teste de login<br/>com um usuário do SSO"])
+    E5["<b>5 · Conferir</b><br/>checklist, roles do usuário,<br/>.env dos apps, JSON"]
+    APPS["Apps com o .env<br/>e KEYCLOAK_REQUIRED_ROLE"]
+
+    E1 --> E2 --> E3a --> SSO1 --> E3b --> E4 --> T --> E5 --> APPS</pre>
+        <table class="ct-table ct-table--compacta mt-tabela">
+          <thead><tr><th>Quem</th><th>Faz o quê</th></tr></thead>
+          <tbody>
+            <tr><td>Administrador do Keycloak</td><td>As etapas 1 a 5 no assistente (role <code>ADMIN</code>)</td></tr>
+            <tr><td>Time do SSO</td><td>A aplicação SAML, os grupos de segurança e o claim de grupos, com as URLs da etapa 3</td></tr>
+            <tr><td>Dono de cada grupo no SSO</td><td>Põe e tira pessoas dos grupos: é o único processo de concessão e revogação</td></tr>
+            <tr><td>Time de cada app</td><td>Copia o <code>.env</code> da etapa 5</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="ct-card mt-secao" id="simular">
+        <h2>Simular e aplicar</h2>
+        <p>Todas as etapas funcionam igual. O serviço da etapa lê o que existe no Keycloak, compara com o formulário e monta um <strong>plano</strong>, com um passo por objeto. <em>Simular</em> só mostra o plano. <em>Aplicar</em> executa cada passo na hora em que ele é registrado. Por isso, aplicar de novo dá "Sem mudança" e, se algo falhar no meio, aplicar outra vez continua de onde parou.</p>
+        <pre class="mermaid">
+flowchart LR
+    F[Formulário] --> V["screens/{tela}/view.py<br/>valida"]
+    V --> X["web.executar()"]
+    X --> S["automacao/{etapa}.py<br/>lê o estado atual"]
+    S --> D{"diferencas()<br/>atual × desejado"}
+    D -- igual --> OK[passo: Sem mudança]
+    D -- falta --> C[passo: Criar]
+    D -- diferente --> A[passo: Atualizar]
+    D -- sobrando --> R[passo: Remover]
+    C & A & R --> Q{Simular?}
+    Q -- sim --> P[só registra]
+    Q -- "não (só Admin)" --> API["api.py<br/>POST / PUT / DELETE"]
+    P & API & OK --> H[(Histórico)]
+    H --> T["plano.html<br/>tabela do plano"]</pre>
+      </section>
+
+      {% if not tem_prints %}<div class="ct-info">Os prints ainda não foram gerados. Com o compose no ar, rode <code>make prints</code>.</div>{% endif %}
+      {% for e in etapas %}
+      <section class="mt-secao mt-etapa" id="{{ e.id }}">
+        <div class="ct-card">
+          <div class="ct-card-head ct-card-head--solto">
+            <h2>{{ e.titulo }}</h2>
+            <a class="ct-btn ct-btn--pequeno" href="{{ e.tela }}">Abrir a tela</a>
+          </div>
+          <p>{{ e.resumo }}</p>
+          <table class="ct-table ct-table--compacta mt-tabela">
+            <tbody>
+              <tr><th>O que muda no Keycloak</th><td>{{ e.muda }}</td></tr>
+              <tr><th>Código</th><td class="ct-codigo">{{ e.codigo }}</td></tr>
+              {% if e.guia %}<tr><th>Guia</th><td>{{ e.guia }}</td></tr>{% endif %}
+            </tbody>
+          </table>
+          {% if e.diagrama %}<pre class="mermaid">{{ e.diagrama|safe }}</pre>{% endif %}
+        </div>
+        {% for p in e.passos %}
+          <article class="ct-card mt-passo" id="passo-{{ p.numero }}">
+            <div class="mt-passo-texto">
+              <span class="mt-numero">{{ p.numero }}</span>
+              <div>
+                <h3>{{ p.titulo }}</h3>
+                <p>{{ p.texto }}</p>
+              </div>
+            </div>
+            <a class="mt-figura" href="{% media_url p.imagem %}" target="_blank" rel="noopener" title="Abrir em tamanho real">
+              <img src="{% media_url p.imagem %}" alt="{{ e.titulo }}: {{ p.titulo }}" loading="lazy">
+            </a>
+          </article>
+        {% endfor %}
+      </section>
+      {% endfor %}
+
+      <section class="ct-card mt-secao" id="codigo">
+        <h2>O código</h2>
+        <p>As telas seguem o padrão do projeto (uma pasta por tela em <code>screens/</code>, com o template de mesmo nome). A regra de negócio fica em <code>automacao/</code>, separada do Django, e só ela fala com o Keycloak.</p>
+        <pre class="mermaid">
+flowchart TB
+    subgraph Django["src/keycloak (app Django)"]
+      T["templates/{tela}.html"]
+      V["screens/{tela}/view.py"]
+      W["automacao/web.py<br/>realm ativo · permissões · histórico"]
+      M[(models.Aplicacao)]
+    end
+    subgraph Nucleo["src/keycloak/automacao (Python puro)"]
+      E["realm.py · grupos.py · saml.py<br/>conferir.py · manutencao.py"]
+      P["plano.py"]
+      A["api.py"]
+    end
+    KC[(Keycloak<br/>Admin REST API)]
+
+    T --- V
+    V --> W --> E
+    W --> M
+    E --> P
+    E --> A --> KC</pre>
+        {% for grupo, itens in codigo %}
+          <h3 class="mt-subtitulo">{{ grupo }}</h3>
+          <table class="ct-table ct-table--compacta mt-tabela">
+            <tbody>
+              {% for caminho, papel in itens %}
+                <tr><td class="ct-codigo ct-nowrap">{{ caminho }}</td><td>{{ papel }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% endfor %}
+        <h3 class="mt-subtitulo">Do guia para o código</h3>
+        <table class="ct-table ct-table--compacta mt-tabela">
+          <thead><tr><th>README_sso.md</th><th>Função</th><th>Chamada na Admin API</th></tr></thead>
+          <tbody>
+            <tr><td>1.1–1.5 realm</td><td class="ct-codigo">realm.aplicar_realm</td><td class="ct-codigo">POST /admin/realms · PUT /admin/realms/{realm}</td></tr>
+            <tr><td>1.7 clients</td><td class="ct-codigo">realm.aplicar_app</td><td class="ct-codigo">POST · PUT …/clients</td></tr>
+            <tr><td>3.1 roles</td><td class="ct-codigo">realm.garantir_role</td><td class="ct-codigo">POST …/roles</td></tr>
+            <tr><td>3.2 grupos</td><td class="ct-codigo">grupos.aplicar</td><td class="ct-codigo">POST …/groups · …/groups/{id}/role-mappings/realm</td></tr>
+            <tr><td>2.3 provedor</td><td class="ct-codigo">saml.aplicar_provedor</td><td class="ct-codigo">POST …/identity-provider/import-config · …/instances</td></tr>
+            <tr><td>2.4 e 4.4 mappers</td><td class="ct-codigo">saml.aplicar_mapeamento</td><td class="ct-codigo">…/instances/{alias}/mappers</td></tr>
+            <tr><td>2.6 login direto</td><td class="ct-codigo">saml._login_direto</td><td class="ct-codigo">…/authentication/executions/{id}/config</td></tr>
+            <tr><td>Versionando</td><td class="ct-codigo">conferir.exportar</td><td class="ct-codigo">POST …/partial-export</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="ct-card mt-secao" id="login">
+        <h2>Login e permissões</h2>
+        <p>O assistente entra pelo Keycloak como os outros apps: o <code>keycloak.js</code> faz o login no client <code>keycloak-assistente</code> e o Django confere o token. O que o usuário pode fazer vem da role de realm <code>ADMIN</code>.</p>
+        <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    actor U as Administrador
+    participant A as Assistente
+    participant K as Keycloak (KC_REALM)
+    U->>A: /login
+    A->>K: keycloak.js (PKCE)
+    U->>K: usuário e senha (ou SSO)
+    K-->>A: token no cookie SSOToken
+    A->>A: sso.py confere assinatura, emissor,<br/>client, validade e EMAILS_PERMITIDOS
+    alt role ADMIN no token
+      A->>A: grupo Admin + superuser: simula e aplica
+    else sem a role
+      A->>A: grupo Limited: consulta e simula
+    end
+    A-->>U: /app/</pre>
+        <p class="ct-note">As chamadas à Admin API não usam o token do usuário: usam o admin do master (<code>KEYCLOAK_ADMIN_USER</code>). Por isso o Histórico guarda quem pediu cada mudança.</p>
+      </section>
+
+      <section class="ct-card mt-secao" id="comandos">
+        <h2>Comandos</h2>
+        <table class="ct-table ct-table--compacta mt-tabela">
+          <tbody>
+            <tr><td class="ct-codigo">make compose</td><td>Sobe o Keycloak, o assistente e, se preciso, o Traefik</td></tr>
+            <tr><td class="ct-codigo">make test</td><td>Testes; com <code>KEYCLOAK_TESTE_URL</code>, também a integração contra o Keycloak</td></tr>
+            <tr><td class="ct-codigo">make prints</td><td>Refaz os prints desta página num realm de demonstração</td></tr>
+            <tr><td class="ct-codigo">make importar-realms · make restaurar-dump</td><td>Destino da migração (compose); <code>k8s-</code> no cluster</td></tr>
+            <tr><td class="ct-codigo">make realm-export</td><td>Export completo do realm em <code>./export/</code></td></tr>
+            <tr><td class="ct-codigo">make k8s-apply</td><td>Keycloak e assistente no Kubernetes</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+  </div>
+</div>
+{% endblock main %}
+
+{% block extra_js %}
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: document.documentElement.classList.contains("dark") ? "dark" : "neutral",
+    flowchart: { htmlLabels: true, curve: "basis" },
+    securityLevel: "strict",
+  });
+</script>
+{% endblock extra_js %}
