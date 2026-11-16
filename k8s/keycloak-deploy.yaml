@@ -1,0 +1,128 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    allow.http: 'false'
+    application: keycloak
+  name: keycloak
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      application: keycloak
+  template:
+    metadata:
+      labels:
+        application: keycloak
+    spec:
+      affinity: {}
+      containers:
+      - name: keycloak
+        image: quay.io/keycloak/keycloak:21.1
+        imagePullPolicy: IfNotPresent
+        args:
+          - start
+        env:
+          # Admin do console (realm master): só é criado no primeiro boot, com o banco vazio
+          - name: KEYCLOAK_ADMIN
+            value: admin
+          - name: KEYCLOAK_ADMIN_PASSWORD
+            value: 58^OpUCYyB3
+          # Banco
+          - name: KC_DB
+            value: postgres
+          # Akamai Managed Database (PostgreSQL): host, porta, usuário e senha em
+          # Cloud Manager -> Databases -> Connection Details. Libere os IPs dos nodes em Manage Access.
+          - name: KC_DB_URL_HOST
+            value: <HOST>
+          - name: KC_DB_URL_PORT
+            value: '23159'
+          # Nome do banco (precisa existir no servidor: CREATE DATABASE keycloak;)
+          - name: KC_DB_URL_DATABASE
+            value: <DB_NAME>
+          - name: KC_DB_URL_PROPERTIES
+            value: '?sslmode=require'
+          - name: KC_DB_USERNAME
+            value: akmadmin
+          - name: KC_DB_PASSWORD
+            value: <SENHA>
+          # TLS termina no Traefik; o Keycloak fala HTTP na 8080
+          # Keycloak 21: só o nome do host, sem https://
+          - name: KC_HOSTNAME
+            value: keycloak.actionstat.app
+          - name: KC_HTTP_ENABLED
+            value: 'true'
+          # edge = TLS termina no proxy (Traefik), lê X-Forwarded-*
+          - name: KC_PROXY
+            value: edge
+          - name: KC_HEALTH_ENABLED
+            value: 'true'
+          - name: KC_METRICS_ENABLED
+            value: 'true'
+          - name: KC_LOG_LEVEL
+            value: info
+          - name: TZ
+            value: America/Sao_Paulo
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        # Keycloak 21: health fica na própria porta 8080
+        startupProbe:
+          httpGet:
+            path: /health/ready
+            port: http
+          periodSeconds: 10
+          failureThreshold: 30
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: http
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: http
+          periodSeconds: 20
+        resources:
+          requests:
+            cpu: 250m
+            memory: 768Mi
+          limits:
+            memory: 1536Mi
+        securityContext:
+          privileged: false
+          allowPrivilegeEscalation: false
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+spec:
+  selector:
+    application: keycloak
+  ports:
+  - port: 8080
+    protocol: TCP
+    targetPort: 8080
+  type: ClusterIP
+---
+# Só HTTPS: o Keycloak (sslRequired=external) recusa login vindo de fora por HTTP
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: keycloak-tls
+  namespace: default
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`keycloak.actionstat.app`)
+      services:
+        - name: keycloak
+          port: 8080
+  tls:
+    certResolver: default

@@ -1,0 +1,5 @@
+sudo find /home /root -type f -name "authorized_keys" \
+  -exec printf '\nArquivo: %s\n' {} \; \
+  -exec cat {} \;
+
+Para remover um acesso por chave SSH, edite o authorized_keys do usuário:

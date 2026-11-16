@@ -15,6 +15,15 @@ class VmForm(forms.Form):
                                 help_text="docker ps --format '{{.Names}}\\t{{.Image}}' na VM")
     destino = forms.ChoiceField(label="Destino", choices=[("compose", "docker compose (esta máquina)"), ("k8s", "Kubernetes (contexto atual do kubectl)")])
 
+    def clean_vm(self) -> str:
+        # Aceita "ssh root@host" colado do terminal: o campo é só o destino (usuario@host)
+        vm = self.cleaned_data["vm"].strip()
+        if vm.startswith("ssh "):
+            vm = vm[4:].strip()
+        if " " in vm:
+            raise forms.ValidationError("Use só usuario@host, sem espaços (ex.: root@170.187.168.183).")
+        return vm
+
 
 class HostForm(forms.Form):
     antigo = forms.URLField(label="Host antigo", assume_scheme="https", help_text="ex.: https://sso.vm-antiga.local")

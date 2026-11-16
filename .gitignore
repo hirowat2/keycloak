@@ -188,3 +188,6 @@ k8s/secrets.env
 # Dumps do banco e exports da VM (migração)
 *.dump
 kc-export.tgz
+k8s/keycloak-deploy-exemplo.yaml
+
+
