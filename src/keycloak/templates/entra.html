@@ -109,7 +109,8 @@ sequenceDiagram
         <tbody>
           <tr><td><b>Identificador (ID da Entidade)</b></td><td class="ct-codigo" id="en-entity">{{ urls.entity_id }}</td><td><button type="button" class="ct-btn ct-btn--pequeno" data-copiar="en-entity"><i class="fa-regular fa-copy"></i> Copiar</button></td></tr>
           <tr><td><b>URL de Resposta</b></td><td class="ct-codigo" id="en-acs">{{ urls.acs }}</td><td><button type="button" class="ct-btn ct-btn--pequeno" data-copiar="en-acs"><i class="fa-regular fa-copy"></i> Copiar</button></td></tr>
-          <tr><td>URL de logoff</td><td class="ct-codigo" id="en-logout">{{ urls.logout }}</td><td><button type="button" class="ct-btn ct-btn--pequeno" data-copiar="en-logout"><i class="fa-regular fa-copy"></i> Copiar</button></td></tr>
+          <tr><td><b>URL de Logon</b></td><td class="ct-codigo" id="en-logon">{{ host }}</td><td><button type="button" class="ct-btn ct-btn--pequeno" data-copiar="en-logon"><i class="fa-regular fa-copy"></i> Copiar</button></td></tr>
+          <tr><td>URL de Logoff (opcional)</td><td class="ct-codigo" id="en-logout">{{ urls.logout }}</td><td><button type="button" class="ct-btn ct-btn--pequeno" data-copiar="en-logout"><i class="fa-regular fa-copy"></i> Copiar</button></td></tr>
         </tbody>
       </table>
     {% elif p.id == "p6" %}
@@ -167,10 +168,11 @@ Precisamos de uma aplicação SAML no Microsoft Entra ID para o login no {{ app 
 2. Single sign-on → SAML → Basic SAML Configuration
    Identifier (Entity ID): {{ urls.entity_id }}
    Reply URL (ACS):        {{ urls.acs }}
-   Logout URL:             {{ urls.logout }}
+   Sign on URL:            {{ host }}
+   Logout URL (opcional):  {{ urls.logout }}
    SAML Certificates → Signing Option: Sign SAML response and assertion (SHA-256)
 
-3. Attributes & Claims: manter emailaddress, givenname, surname e o Unique User Identifier.
+3. Attributes & Claims: manter givenname, surname, emailaddress, name e o Unique User Identifier.
    Add a group claim:
    - Groups assigned to the application
    - Source attribute: Cloud-only group display names

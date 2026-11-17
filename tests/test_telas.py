@@ -143,3 +143,24 @@ def test_guia_do_azure_tem_as_ilustracoes() -> None:
     figuras = {f for p in lista for f, _ in p["figuras"]}
     assert sorted(f for f in figuras if not os.path.exists(os.path.join(settings.MEDIA_ROOT, "entra", f))) == []
     assert all("<script>" not in t for p in lista for _, t in p["itens"])
+
+
+def test_tour_de_cada_tela() -> None:
+    """Toda tela do menu tem tour, e toda figura citada existe em media/."""
+    import os
+
+    from django.conf import settings
+
+    from keycloak.screens.config.aside import SECOES
+    from keycloak.screens.config.tours import TOURS
+
+    telas = {i["href"].strip("/").split("/")[1] for s in SECOES for i in s["itens"] if i["href"].startswith("/app/")}
+    assert sorted(telas - set(TOURS)) == []
+    figuras = {p["figura"] for t in TOURS.values() for p in t["passos"] if p.get("figura")}
+    assert sorted(f for f in figuras if not os.path.exists(os.path.join(settings.MEDIA_ROOT, f))) == []
+    assert all(p.get("titulo") and p.get("texto") for t in TOURS.values() for p in t["passos"])
+
+
+def test_tour_vai_na_pagina(entrar) -> None:
+    html = entrar("Limited").get("/app/manual/").content.decode()
+    assert 'id="tour-dados"' in html and "js/tour.js" in html and "data-tour-abrir" in html

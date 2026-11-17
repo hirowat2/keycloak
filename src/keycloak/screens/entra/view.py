@@ -17,10 +17,12 @@ from keycloak.automacao.web import api, com_realm
 
 # O que o Keycloak lê de cada claim (mappers da etapa 3) e de onde o Entra tira o valor.
 CLAIMS = [
-    ("emailaddress", f"{servico.CLAIMS_ENTRA}emailaddress", "user.mail", "e-mail do usuário; também vira o username"),
     ("givenname", f"{servico.CLAIMS_ENTRA}givenname", "user.givenname", "nome"),
     ("surname", f"{servico.CLAIMS_ENTRA}surname", "user.surname", "sobrenome"),
-    ("Unique User Identifier (Name ID)", "NameID", "user.userprincipalname", "identificador do login (formato e-mail)"),
+    ("emailaddress", f"{servico.CLAIMS_ENTRA}emailaddress", "user.mail", "e-mail do usuário; também vira o username"),
+    ("name", f"{servico.CLAIMS_ENTRA}name", "user.userprincipalname", "não é lido pelo Keycloak; deixe como está"),
+    ("Identificador Exclusivo do Usuário (ID de Nome)", "NameID", "user.userprincipalname", "identificador do login (formato e-mail)"),
+    ("groups", "groups", "user.groups", "grupos atribuídos ao app (passo 7); viram grupos na etapa 4"),
 ]
 
 # Erros que o Entra mostra na tela de login (código AADSTS) e no Keycloak, com a correção.
@@ -49,7 +51,7 @@ def _c(valor: str) -> str:
     return f'<code class="ct-quebra">{escape(valor)}</code>'
 
 
-def passos(app: str, urls: dict, alias: str, grupos: list[str], provedor) -> list[dict]:
+def passos(app: str, urls: dict, alias: str, grupos: list[str], provedor, host: str = "https://<keycloak>") -> list[dict]:
     """O passo a passo, um item por número vermelho das ilustrações (media/entra/az-*.png, make ilustracoes-azure)."""
     lista_grupos = ", ".join(_c(g) for g in grupos) or "os grupos da etapa 2"
     etapa3 = f"/app/sso/?alias={escape(alias)}" if provedor else "/app/sso/?novo=1"
@@ -74,19 +76,22 @@ def passos(app: str, urls: dict, alias: str, grupos: list[str], provedor) -> lis
         {"id": "p4", "onde": "Azure", "titulo": "Conhecer a página do SAML",
          "caminho": "o app → Logon único (depois de escolher SAML)",
          "figuras": [("az-04-saml-visao-geral.png", "Logon único baseado em SAML, já configurado")],
-         "itens": [("1", "<b>Configuração Básica do SAML</b>: os endereços do Keycloak (passo 5)."),
-                   ("2", "<b>Atributos e Declarações</b>: o que vai na asserção, incluindo os grupos (passos 6 e 7)."),
-                   ("3", "<b>Certificados SAML</b>: a assinatura e a URL de metadados que o Keycloak lê (passos 8 e 12)."),
-                   ("4", "<b>Configurar …</b>: URL de logon e identificador do Azure. Não precisa copiar: vêm na metadata."),
-                   ("5", "<b>Testar</b>: só funciona depois do passo 12.")],
+         "itens": [("1", "<b>Configuração Básica de SAML</b>: Identificador, URL de Resposta e URL de Logon, todos do Keycloak (passo 5)."),
+                   ("2", "<b>Atributos e Declarações</b>: givenname, surname, emailaddress, name, Identificador Exclusivo do Usuário e groups (passos 6 e 7)."),
+                   ("3", "<b>Certificados SAML</b>: status, impressão digital, expiração, e-mail de notificação e a URL de metadados que o Keycloak lê (passos 8 e 12). "
+                         "<em>Certificados de verificação (opcional)</em> fica como vem: Obrigatório Não, Ativo 0."),
+                   ("4", f"<b>Configurar {escape(app)}</b>: URL de Logon, Identificador do Microsoft Entra e URL de logoff do Azure. Não precisa copiar: vêm na metadata."),
+                   ("5", f"<b>Test o logon único com {escape(app)}</b>: só funciona depois do passo 12 (passo 13).")],
          "nota": "A figura mostra a página já preenchida, como fica no fim. Os números azuis são do próprio portal."},
         {"id": "p5", "onde": "Azure", "titulo": "Configuração Básica do SAML",
          "caminho": "Logon único → 1 Configuração Básica do SAML → Editar",
          "figuras": [("az-05-configuracao-basica.png", "Configuração Básica do SAML")],
          "itens": [("1", f"<b>Identificador (ID da Entidade)</b>: <b>Adicionar identificador</b>, cole {_c(urls['entity_id'])} e marque <b>Padrão</b>."),
                    ("2", f"<b>URL de Resposta</b>: <b>Adicionar URL de resposta</b>, cole {_c(urls['acs'])} e marque <b>Padrão</b>. Índice em branco."),
-                   ("3", "<b>URL de logon</b>: em branco (o login começa pelo app). Estado de Retransmissão: em branco."),
-                   ("4", f"<b>URL de logoff</b> (opcional): {_c(urls['logout'])}. Sair do app também sai do Azure."),
+                   ("3", f"<b>URL de Logon</b>: {_c(host)}. É para onde o My Apps leva quem clica no ícone do app; "
+                         "o Keycloak não aceita login começado pelo Azure, então ele precisa começar no Keycloak (ou no endereço do app). "
+                         "Estado de Retransmissão: em branco."),
+                   ("4", f"<b>URL de Logoff</b> (opcional): pode ficar em branco. Preenchida com {_c(urls['logout'])}, sair do Azure também encerra a sessão no Keycloak."),
                    ("5", "<b>Salvar</b> e feche o painel. Se perguntar se quer testar, responda <em>Não, testarei mais tarde</em>.")],
          "nota": "Copie exatamente, sem barra no fim. Uma letra diferente dá AADSTS700016 (Identificador) ou AADSTS50011 (URL de Resposta). "
                  "O alias faz parte da URL de Resposta: ele precisa ser o mesmo da etapa 3."},
@@ -94,9 +99,10 @@ def passos(app: str, urls: dict, alias: str, grupos: list[str], provedor) -> lis
          "caminho": "Logon único → 2 Atributos e Declarações → Editar",
          "figuras": [("az-06-atributos-declaracoes.png", "Atributos e Declarações")],
          "itens": [("1", "<b>Adicionar uma declaração de grupo</b> (próximo passo)."),
-                   ("2", "As <b>declarações adicionais</b> padrão ficam como estão: o Keycloak lê <code>emailaddress</code>, "
-                         "<code>givenname</code> e <code>surname</code> (tabela abaixo). Não renomeie."),
-                   ("3", "Depois do passo 7 aparece a linha <code>groups</code> = <code>user.groups [ApplicationGroup]</code>.")],
+                   ("2", "As declarações padrão ficam como estão: <code>givenname</code>, <code>surname</code>, <code>emailaddress</code>, "
+                         "<code>name</code> e o <b>Identificador Exclusivo do Usuário</b> (tabela abaixo). O Keycloak lê emailaddress, givenname e surname. Não renomeie."),
+                   ("3", "Depois do passo 7 aparece a linha <code>groups</code> = <code>user.groups</code> "
+                         "(no detalhe da declaração: <code>user.groups [ApplicationGroup]</code>).")],
          "nota": "Convidados (B2B) às vezes não têm o campo Email: se o login chegar sem e-mail, troque o valor de emailaddress para user.userprincipalname."},
         {"id": "p7", "onde": "Azure", "titulo": "Declaração de grupo",
          "caminho": "Atributos e Declarações → Adicionar uma declaração de grupo",
@@ -149,9 +155,12 @@ def passos(app: str, urls: dict, alias: str, grupos: list[str], provedor) -> lis
                    ("3", "<b>Editar</b> leva ao painel do passo 8.")],
          "nota": f"Depois, na <a href=\"/app/mapeamento/?alias={escape(alias)}\">etapa 4</a>: chave groups e, para cada grupo, o nome que chega (ou o GUID com ID do Grupo)."},
         {"id": "p13", "onde": "Azure + assistente", "titulo": "Testar e investigar",
-         "caminho": "o app → Logs de entrada",
+         "caminho": "Logon único → Test este aplicativo (ou 5 · Test) → Teste de entrada; depois o app → Logs de entrada",
          "figuras": [("az-14-logs-entrada.png", "Logs de entrada do aplicativo")],
-         "itens": [("1", f"Teste numa janela anônima: <a href=\"{escape(urls['entity_id'])}/account\" target=\"_blank\" rel=\"noopener\">{escape(urls['entity_id'])}/account</a> → <em>Entrar com …</em>. "
+         "itens": [("•", "No Azure: <b>Test este aplicativo</b> abre o painel <em>Test o logon único</em>. <b>Teste de entrada</b> testa com o seu usuário, "
+                         "que precisa estar num grupo atribuído ao app (passo 10). Se der erro, cole a mensagem em <b>Solucionando erros</b> e use "
+                         "<b>Obter diretrizes de resolução</b>. Para testar com outra pessoa, abra o portal numa aba anônima com a conta dela."),
+                   ("1", f"Teste numa janela anônima: <a href=\"{escape(urls['entity_id'])}/account\" target=\"_blank\" rel=\"noopener\">{escape(urls['entity_id'])}/account</a> → <em>Entrar com …</em>. "
                          "Se falhar no Azure, abra <b>Logs de entrada</b> do app e filtre pelo aplicativo."),
                    ("2", "Cada tentativa mostra o <b>Código de erro</b>: procure-o na tabela <a href=\"#erros\">Se der errado</a>."),
                    ("3", "O <b>Motivo da falha</b> diz o que acertar (no exemplo, o usuário não está em nenhum grupo atribuído).")],
@@ -193,17 +202,18 @@ def view(context, request, realm) -> dict[str, Any]:
         {
             "alias": alias,
             "app": app,
+            "host": url_publica() or "https://<keycloak>",
             "urls": urls,
             "grupos": grupos,
             "provedor": provedor,
             "mapeados": mapeados,
             "claims": CLAIMS,
-            "passos": passos(app, urls, alias, grupos, provedor),
+            "passos": passos(app, urls, alias, grupos, provedor, url_publica() or "https://<keycloak>"),
             "erros": ERROS,
             "chave_longa": servico.CHAVE_GRUPOS_ENTRA_LONGA,
             "checklist": [
                 ("Enterprise application criado com SAML", None),
-                ("Identifier e Reply URL iguais aos do passo 2", None),
+                ("Identificador e URL de Resposta iguais aos do passo 5; URL de Logon no Keycloak", None),
                 ("Claim de grupos: Groups assigned to the application, nome groups", None),
                 ("Um grupo de segurança por grupo do Keycloak, com o mesmo nome", None),
                 ("Grupos atribuídos ao app e Assignment required = Yes", None),

@@ -170,31 +170,32 @@ const FIGURAS = {
 
   // 4 · SAML-based sign-on (visão geral)
   "az-04-saml-visao-geral": { largura: 1300, altura: 980, html: app("Logon único baseado em SAML", `
-      <div class="barra"><span>⤒ Carregar arquivo de metadados</span><span>⇄ Alterar o modo de logon único</span><span>✓ Testar este aplicativo</span></div>
-      <div class="cartao" data-n="1"><h3><span class="num">1</span>Configuração Básica do SAML</h3><span class="editar">✎ Editar</span>
+      <div class="barra"><span>⤒ Carregar arquivo de metadados</span><span>⇄ Alterar o modo de logon único</span><span>✓ Test este aplicativo</span></div>
+      <div class="cartao" data-n="1"><h3><span class="num">1</span>Configuração Básica de SAML</h3><span class="editar">✎ Editar</span>
         <div class="kv"><div>Identificador (ID da Entidade)</div><div class="mono">${ENTITY}</div><div>URL de Resposta (URL do Serviço do Consumidor de Declaração)</div><div class="mono">${ACS}</div>
-        <div>URL de logon</div><div>Opcional</div><div>Estado de Retransmissão (Opcional)</div><div>Opcional</div><div>URL de logoff (Opcional)</div><div class="mono">${ACS}</div></div></div>
+        <div>URL de Logon</div><div class="mono">${HOST}</div><div>Estado de Retransmissão (Opcional)</div><div>Opcional</div><div>URL de Logoff (Opcional)</div><div>Opcional</div></div></div>
       <div class="cartao" data-n="2"><h3><span class="num">2</span>Atributos e Declarações</h3><span class="editar">✎ Editar</span>
-        <div class="kv"><div>givenname</div><div>user.givenname</div><div>surname</div><div>user.surname</div><div>emailaddress</div><div>user.mail</div><div>name</div><div>user.userprincipalname</div><div>groups</div><div>user.groups [ApplicationGroup]</div><div>Identificador de Usuário Exclusivo</div><div>user.userprincipalname</div></div></div>
+        <div class="kv"><div>givenname</div><div>user.givenname</div><div>surname</div><div>user.surname</div><div>emailaddress</div><div>user.mail</div><div>name</div><div>user.userprincipalname</div><div>Identificador Exclusivo do Usuário</div><div>user.userprincipalname</div><div>groups</div><div>user.groups</div></div></div>
       <div class="cartao" data-n="3"><h3><span class="num">3</span>Certificados SAML</h3><span class="editar">✎ Editar</span>
-        <div class="kv"><div>Status</div><div>Ativo</div><div>Expiração</div><div>17/11/2029, 10:12:04</div><div>Email de Notificação</div><div>ti@exemplo.com.br</div>
-        <div>URL de Metadados de Federação do Aplicativo</div><div class="mono">https://login.microsoftonline.com/${TENANT.slice(0, 8)}…/federationmetadata/2007-06/federationmetadata.xml?appid=${APP_ID.slice(0, 8)}… ⧉</div></div></div>
+        <div class="kv"><div>Status</div><div>Ativo</div><div>Impressão Digital</div><div class="mono">A1B2C3D4E5F6…</div><div>Expiração</div><div>17/11/2029, 10:12:04</div><div>Email de Notificação</div><div>ti@exemplo.com.br</div>
+        <div>URL de Metadados de Federação do Aplicativo</div><div class="mono">https://login.microsoftonline.com/${TENANT.slice(0, 8)}…/federationmetadata/2007-06/federationmetadata.xml?appid=${APP_ID.slice(0, 8)}… ⧉</div>
+        <div>Certificados de verificação (opcional)</div><div>Obrigatório Não · Ativo 0 · Expirou 0</div></div></div>
       <div class="cartao" data-n="4"><h3><span class="num">4</span>Configurar ${APP}</h3>
-        <div class="kv"><div>URL de logon</div><div class="mono">https://login.microsoftonline.com/${TENANT.slice(0, 8)}…/saml2</div><div>Identificador do Microsoft Entra</div><div class="mono">https://sts.windows.net/${TENANT.slice(0, 8)}…/</div></div></div>
-      <div class="cartao" data-n="5"><h3><span class="num">5</span>Testar logon único com ${APP}</h3><span class="botao sec">Testar</span></div>`) },
+        <div class="kv"><div>URL de logon</div><div class="mono">https://login.microsoftonline.com/${TENANT.slice(0, 8)}…/saml2</div><div>Identificador do Microsoft Entra</div><div class="mono">https://sts.windows.net/${TENANT.slice(0, 8)}…/</div><div>URL de logoff</div><div class="mono">https://login.microsoftonline.com/${TENANT.slice(0, 8)}…/saml2</div></div></div>
+      <div class="cartao" data-n="5"><h3><span class="num">5</span>Test o logon único com o ${APP}</h3><span class="botao">Test</span></div>`) },
 
   // 5 · Basic SAML Configuration (editar)
   "az-05-configuracao-basica": { largura: 1300, altura: 900, html: app("Logon único baseado em SAML", "") + `<div class="sombra"></div><div class="painel">
-      <h2>Configuração Básica do SAML</h2><p class="sub"><span class="link">💾 Salvar</span> &nbsp; <span class="link">Tem comentários?</span></p>
+      <h2>Configuração Básica de SAML</h2><p class="sub"><span class="link">💾 Salvar</span> &nbsp; <span class="link">Tem comentários?</span></p>
       <div data-n="1"><p style="font-weight:600;margin:12px 0 6px">Identificador (ID da Entidade) <i style="color:#a4262c;font-style:normal">*</i></p>
         <table><tr><th></th><th>Padrão</th><th></th></tr><tr><td><input class="mono" value="${ENTITY}"></td><td style="width:60px;text-align:center"><span class="check" style="justify-content:center"><b class="on">✓</b></span></td><td style="width:30px">🗑</td></tr></table>
         <span class="link" style="font-size:13px">Adicionar identificador</span></div>
       <div data-n="2"><p style="font-weight:600;margin:16px 0 6px">URL de Resposta (URL do Serviço do Consumidor de Declaração) <i style="color:#a4262c;font-style:normal">*</i></p>
         <table><tr><th></th><th>Índice</th><th>Padrão</th></tr><tr><td><input class="mono" value="${ACS}"></td><td style="width:60px"><input value="" style="width:44px"></td><td style="width:60px;text-align:center"><span class="check" style="justify-content:center"><b class="on">✓</b></span></td></tr></table>
         <span class="link" style="font-size:13px">Adicionar URL de resposta</span></div>
-      <div data-n="3"><p style="font-weight:600;margin:16px 0 6px">URL de logon (Opcional)</p><input placeholder="Insira uma URL de logon"></div>
+      <div data-n="3"><p style="font-weight:600;margin:16px 0 6px">URL de Logon (Opcional)</p><input class="mono" value="${HOST}"></div>
       <div><p style="font-weight:600;margin:16px 0 6px">Estado de Retransmissão (Opcional)</p><input placeholder="Insira um estado de retransmissão"></div>
-      <div data-n="4"><p style="font-weight:600;margin:16px 0 6px">URL de logoff (Opcional)</p><input class="mono" value="${ACS}"></div>
+      <div data-n="4"><p style="font-weight:600;margin:16px 0 6px">URL de Logoff (Opcional)</p><input placeholder="Insira uma URL de logoff"></div>
       <div style="margin-top:20px"><span class="botao" data-n="5">💾 Salvar</span></div></div>` },
 
   // 6 · Attributes & Claims

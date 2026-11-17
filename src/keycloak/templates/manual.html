@@ -32,6 +32,7 @@
         <ol class="mn-lista">
           <li><b>O Keycloak e o realm do menu lateral são onde tudo acontece.</b> Confira o servidor (seletor <i>Keycloak</i>, caso 9) e troque o realm antes de mexer em outro cliente; a tela recusa uma ação se o realm mudou em outra aba.</li>
           <li><b>Simular nunca grava.</b> Mostra o plano: o que seria criado, atualizado ou removido. <b>Aplicar</b> grava e pede confirmação.</li>
+          <li><b>Toda tela tem um tour.</b> O botão <b>Tour</b> no topo mostra, parte por parte, o que a tela faz, com figuras. Na primeira visita a tela oferece o tour sozinha.</li>
           <li><b>Aplicar de novo é seguro.</b> O que já está certo aparece como "Sem mudança"; se algo falhou no meio, continua de onde parou.</li>
         </ol>
         <table class="ct-table ct-table--compacta mt-tabela">
@@ -108,7 +109,7 @@ flowchart TB
         <h2>As telas</h2>
         <table class="ct-table ct-table--compacta mt-tabela">
           <thead><tr><th>Tela</th><th>Para quê</th><th>Quem muda</th></tr></thead>
-          <tbody>{% for url, nome, para, quem in telas %}<tr><td class="ct-nowrap"><a href="{{ url }}">{{ nome }}</a></td><td>{{ para }}</td><td class="ct-nowrap">{{ quem }}</td></tr>{% endfor %}</tbody>
+          <tbody>{% for url, nome, para, quem in telas %}<tr><td class="ct-nowrap"><a href="{{ url }}">{{ nome }}</a> · <a href="{{ url }}?tour=1" title="Abrir a tela com o tour"><i class="fa-solid fa-route"></i> tour</a></td><td>{{ para }}</td><td class="ct-nowrap">{{ quem }}</td></tr>{% endfor %}</tbody>
         </table>
       </section>
 

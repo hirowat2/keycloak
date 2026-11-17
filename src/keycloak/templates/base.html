@@ -1,4 +1,4 @@
-{% load static django_htmx component_tags app_menu %}{% menu_app as menu %}<!doctype html>
+{% load static django_htmx component_tags app_menu custom_filters %}{% menu_app as menu %}{% tour_da_tela as tour %}<!doctype html>
 <html lang="pt-BR">
   <head>
     <title>{% block title %}Assistente Keycloak{% endblock %}{% if menu.realm %} · {{ menu.realm }}{% endif %}</title>
@@ -68,5 +68,6 @@
       }));
     })();
   </script>
+  {% if tour %}{{ tour|json_script:"tour-dados" }}<script src="{% media_url 'js/tour.js' %}" defer></script>{% endif %}
   {% block extra_js %}{% endblock extra_js %}
 </html>

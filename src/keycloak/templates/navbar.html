@@ -9,6 +9,7 @@
     {% endif %}
   </div>
   {% if menu.realm %}<span class="app-empresa" title="Realm ativo"><i class="fa-solid fa-layer-group" aria-hidden="true"></i><span>{{ menu.realm }}</span></span>{% endif %}
+  {% if tour %}<button type="button" class="app-tour" data-tour-abrir title="Tour explicativo desta tela"><i class="fa-solid fa-route" aria-hidden="true"></i><span>Tour</span></button>{% endif %}
   <button type="button" class="app-icone-btn app-tema" data-alternar-tema aria-label="Alternar tema claro/escuro" title="Alternar tema">
     <i class="fa-solid fa-moon"></i><i class="fa-solid fa-sun"></i>
   </button>

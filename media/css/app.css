@@ -349,3 +349,33 @@ html.dark .app-tema .fa-moon { display: none; }
 @media (max-width: 1023px) {
     .app-recolher { display: none; }
 }
+
+/* ------------------------------------------------------------------ Tour das telas (media/js/tour.js) */
+.tour-camada { position: fixed; inset: 0; z-index: 1000; background: transparent; }
+.tour-camada--escura { background: rgba(15, 20, 27, .55); }
+.tour-destaque { position: fixed; z-index: 1001; border-radius: 10px; pointer-events: none;
+  box-shadow: 0 0 0 3px #e11d48, 0 0 0 9999px rgba(15, 20, 27, .55); transition: all .2s ease; }
+.tour-balao { position: fixed; z-index: 1002; background: var(--ct-surface); color: var(--ct-text); border: 1px solid var(--ct-border);
+  border-radius: 12px; box-shadow: 0 18px 40px rgba(0, 0, 0, .28); padding: 14px 16px; max-height: calc(100vh - 24px); overflow: auto; }
+.tour-cabeca { display: flex; justify-content: space-between; align-items: center; }
+.tour-contador { font-size: 12px; font-weight: 600; color: var(--ct-accent); text-transform: uppercase; letter-spacing: .06em; }
+.tour-x { border: 0; background: none; font-size: 22px; line-height: 1; color: var(--ct-text-2); cursor: pointer; }
+.tour-titulo { margin: 4px 0 6px; font-size: 16px; }
+.tour-texto { font-size: 14px; line-height: 1.5; }
+.tour-texto p { margin: 0 0 6px; }
+.tour-texto code { font-size: 12.5px; }
+.tour-figura { display: block; margin-top: 10px; }
+.tour-figura img { width: 100%; border: 1px solid var(--ct-border); border-radius: 8px; display: block; }
+.tour-legenda { margin: 4px 0 0; font-size: 12px; color: var(--ct-text-2); }
+.tour-barra { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 12px; }
+.tour-pontos { display: flex; gap: 4px; flex-wrap: wrap; }
+.tour-pontos span { width: 7px; height: 7px; border-radius: 50%; background: var(--ct-border); }
+.tour-pontos span.on { background: var(--ct-accent); }
+.tour-botoes { display: flex; gap: 6px; }
+.tour-convite { position: fixed; z-index: 900; width: 300px; background: var(--ct-surface); border: 1px solid var(--ct-border);
+  border-radius: 12px; box-shadow: 0 12px 30px rgba(0, 0, 0, .18); padding: 12px 14px; font-size: 13.5px; }
+.tour-convite p { margin: 0 0 10px; }
+.tour-convite .tour-botoes { justify-content: flex-end; }
+.app-tour { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--ct-border); background: var(--ct-surface);
+  color: var(--ct-text); border-radius: 999px; padding: 4px 12px; font-size: 13px; cursor: pointer; }
+.app-tour:hover { border-color: var(--ct-accent); color: var(--ct-accent); }

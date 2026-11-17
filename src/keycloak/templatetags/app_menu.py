@@ -53,3 +53,21 @@ def iniciais(usuario) -> str:
     if nome:
         return (nome[0][0] + (nome[-1][0] if len(nome) > 1 else "")).upper()
     return (getattr(usuario, "username", "") or "?")[:1].upper()
+
+
+@register.simple_tag(takes_context=True)
+def tour_da_tela(context) -> dict | None:
+    """O tour da tela atual (/app/<tela>/), com as figuras já com a URL de /media/; None se a tela não tem tour."""
+    from keycloak.screens.config.tours import TOURS
+    from keycloak.templatetags.custom_filters import media_url
+
+    request = context.get("request")
+    if not getattr(getattr(request, "user", None), "is_authenticated", False):
+        return None
+    partes = [p for p in getattr(request, "path", "").split("/") if p]
+    tela = partes[1] if len(partes) >= 2 and partes[0] == "app" else ("painel" if partes == ["app"] else "")
+    tour = TOURS.get(tela)
+    if not tour:
+        return None
+    passos = [{**passo, "figura": media_url(passo["figura"]) if passo.get("figura") else ""} for passo in tour["passos"]]
+    return {"tela": tela, "titulo": tour["titulo"], "passos": passos}
