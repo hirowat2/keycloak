@@ -13,6 +13,20 @@
     </button>
   </div>
 
+  {% if menu.servidores %}
+    <form class="app-empresa-troca" method="post" action="/app/servidor-ativo/" title="Keycloak: {{ menu.servidor.url }}">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <label class="app-empresa-rotulo" for="servidor-ativo"><i class="fa-solid fa-server" aria-hidden="true"></i><span>Keycloak</span></label>
+      <select id="servidor-ativo" name="servidor" data-trocar-realm>
+        {% for s in menu.servidores %}
+          <option value="{{ s.chave }}" {% if s.chave == menu.servidor.chave %}selected{% endif %}>{{ s.nome }}</option>
+        {% endfor %}
+      </select>
+      <noscript><button type="submit" class="ct-btn">Trocar</button></noscript>
+    </form>
+  {% endif %}
+
   {% if menu.realms %}
     <form class="app-empresa-troca" method="post" action="/app/realm-ativo/" title="Realm: {{ menu.realm }}">
       {% csrf_token %}

@@ -88,6 +88,11 @@ ETAPAS = [
              "As URLs acompanham o alias digitado: (1) Entity ID e (2) ACS/Reply URL. (3) Copia para a área de transferência."),
             ("09-sso-roteiro.png", "Roteiro dentro do SSO",
              "(1) O passo a passo no portal do SSO escolhido: aplicação SAML, claims, grupos de segurança, atribuição e a URL de metadata."),
+            ("28-entra-guia.png", "Guia do Azure AD",
+             "13 passos do portal do Azure (em português), com o realm e o alias preenchidos: (1) o que fazer em cada número, "
+             "(2) a ilustração do portal com os mesmos números, (3) os valores para copiar. Mais claims, grupos da etapa 2, erros AADSTS."),
+            ("29-entra-email.png", "Texto para o time do Azure",
+             "(1) O pedido completo, com URLs e os grupos do realm, para mandar por e-mail. (2) Copiar."),
             ("10-sso-formulario.png", "Cadastro no Keycloak",
              "(1) Qual SSO (define os nomes dos atributos dos mappers). (2) Alias. (3) URL de metadata que o time do SSO devolveu. "
              "(4) Opcional: mandar o usuário direto ao SSO, sem a tela do Keycloak."),
@@ -201,6 +206,32 @@ ETAPAS = [
         ],
     },
     {
+        "id": "servidores", "titulo": "Servidores Keycloak", "tela": "/app/servidores/", "guia": "",
+        "resumo": "Os Keycloaks que o assistente administra, cadastrados pela interface (URL e credencial do master). O escolhido "
+                  "no menu lateral vale para a sessão de quem escolheu, e todas as telas da Admin API passam a trabalhar nele.",
+        "muda": "Nada no Keycloak: grava o cadastro no banco do assistente, com a senha ou o secret cifrados (Fernet, chave "
+                "derivada da SECRET_KEY). O login no assistente continua no Keycloak do ambiente.",
+        "codigo": "models.Servidor · automacao/servidores.py → disponiveis(), ativar(), testar() · web.KeycloakAtivoMiddleware · screens/servidores/view.py",
+        "diagrama": """flowchart TB
+    F["Cadastro<br/>URL pública · URL interna<br/>admin do master ou service account"] --> T{"Testar<br/>token no master + serverinfo"}
+    T -- "recusado" --> E["mostra a causa<br/>(senha, client, /auth, certificado)"]
+    T -- ok --> S[("Servidor<br/>segredo cifrado")]
+    S --> M["seletor do menu<br/>(sessão)"]
+    A["Do ambiente<br/>KEYCLOAK_*"] --> M
+    M --> W["middleware ativa o escolhido<br/>em cada requisição"]
+    W --> API["todas as telas<br/>falam com a Admin API dele"]
+    W --> H["Histórico grava<br/>o servidor"]""",
+        "passos": [
+            ("26-servidores-cadastro.png", "Cadastrar",
+             "(1) URL pública: a raiz do Keycloak (com /auth se ele usar esse caminho). (2) URL interna, se o assistente "
+             "alcança o Keycloak por outro endereço. (3) Admin do master ou client com service account. (4) Testar mostra a "
+             "versão e os realms. (5) Testar e salvar: só grava se conectar (ou Salvar mesmo assim)."),
+            ("27-servidores-lista.png", "Escolher",
+             "(1) Os servidores, o ativo da sua sessão e as ações Usar, Testar, Editar e Remover. (2) O seletor do menu "
+             "lateral troca o Keycloak em qualquer tela; o realm volta ao padrão do servidor novo."),
+        ],
+    },
+    {
         "id": "historico", "titulo": "Histórico", "tela": "/app/historico/", "guia": "",
         "resumo": "Toda simulação e aplicação fica registrada, com o plano completo. O Keycloak não guarda quem mudou o quê pela Admin API.",
         "muda": "Nada no Keycloak.", "codigo": "models.Aplicacao · automacao/web.py → executar()",
@@ -230,12 +261,13 @@ CODIGO = [
         ("conferir.py", "Etapa 5: checklist contra o guia, consulta de usuário, .env dos apps e o JSON versionável."),
         ("manutencao.py", "Pós-migração: troca de host nos clients, Frontend URL e usuários incompletos."),
         ("dump.py", "Banco do Keycloak direto no PostgreSQL: conexão (ambiente ou sessão), pg_restore num temporário, conferência, troca com cópia, senha pbkdf2, pg_dump e reinício do deploy pela API do Kubernetes."),
-        ("web.py", "Ponte com as telas: realm ativo, permissões, decorador com_realm e executar(), que roda a etapa e grava o Histórico."),
+        ("servidores.py", "Os Keycloaks cadastrados na tela Servidores (e o do ambiente): segredo cifrado, conexão por servidor e o teste com a dica do que acertar."),
+        ("web.py", "Ponte com as telas: KeycloakAtivoMiddleware (o servidor escolhido no menu), realm ativo, permissões, decorador com_realm e executar(), que roda a etapa e grava o Histórico."),
     ]),
     ("Login e projeto", [
         ("src/system/sso.py", "Valida o token do keycloak.js (assinatura, emissor, client, validade), aplica EMAILS_PERMITIDOS e põe quem tem a role ADMIN no grupo Admin."),
         ("src/keycloak/management/commands/preparar_login.py", "Roda no entrypoint: cria o client keycloak-assistente e a role ADMIN no realm do login, se faltarem."),
-        ("src/keycloak/models.py", "Aplicacao: o registro do Histórico (etapa, realm, usuário, simulação ou não, plano e erro)."),
+        ("src/keycloak/models.py", "Aplicacao: o registro do Histórico (servidor, etapa, realm, usuário, simulação ou não, plano e erro). Servidor: os Keycloaks cadastrados."),
     ]),
     ("Infraestrutura", [
         ("docker-compose.yml", "Keycloak 21.1 (KC_VERSION) + Postgres configurável (KC_DB_*), assistente + Postgres e o Traefik (só se ninguém publicar a 443)."),

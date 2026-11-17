@@ -3,7 +3,7 @@ import os
 
 from django.contrib import admin
 
-from .models import Aplicacao
+from .models import Aplicacao, Servidor
 
 # Descobre o caminho dinamicamente
 PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -29,3 +29,12 @@ class AplicacaoAdmin(admin.ModelAdmin):
     list_filter = ["etapa", "simulacao", "sucesso", "realm"]
     search_fields = ["realm", "usuario__email", "erro"]
     readonly_fields = [f.name for f in Aplicacao._meta.fields] + ["passos"]
+
+
+@admin.register(Servidor)
+class ServidorAdmin(admin.ModelAdmin):
+    """Só leitura do segredo: cadastre e edite pela tela Servidores Keycloak (ela cifra a senha)."""
+
+    list_display = ["nome", "url", "url_interna", "usa_client", "verificar_tls", "atualizado_em"]
+    exclude = ["segredo"]
+    readonly_fields = ["criado_em", "atualizado_em", "criado_por"]

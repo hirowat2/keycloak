@@ -30,7 +30,7 @@
         <h2>Antes de tudo</h2>
         <p>O assistente aplica no Keycloak o que está nos guias README_sso.md e README_migracao_vm.md, por formulários. Três regras valem para todas as telas:</p>
         <ol class="mn-lista">
-          <li><b>O realm do menu lateral é onde tudo acontece.</b> Troque-o antes de mexer em outro cliente; a tela recusa uma ação se o realm mudou em outra aba.</li>
+          <li><b>O Keycloak e o realm do menu lateral são onde tudo acontece.</b> Confira o servidor (seletor <i>Keycloak</i>, caso 9) e troque o realm antes de mexer em outro cliente; a tela recusa uma ação se o realm mudou em outra aba.</li>
           <li><b>Simular nunca grava.</b> Mostra o plano: o que seria criado, atualizado ou removido. <b>Aplicar</b> grava e pede confirmação.</li>
           <li><b>Aplicar de novo é seguro.</b> O que já está certo aparece como "Sem mudança"; se algo falhou no meio, continua de onde parou.</li>
         </ol>
@@ -57,6 +57,7 @@ flowchart TB
     Q -- "voltar um backup" --> C6["6 · Restaurar um dump"]
     Q -- "perdi a senha do admin" --> C7["7 · Recuperar o admin"]
     Q -- "vou mexer em muita coisa" --> C8["8 · Backup antes"]
+    Q -- "administrar outro Keycloak" --> C9["9 · Cadastrar um servidor"]
     C8 -.-> C6</pre>
       </section>
 

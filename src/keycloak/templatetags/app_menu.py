@@ -1,5 +1,6 @@
 from django import template
 
+from keycloak.automacao import servidores
 from keycloak.screens.config.aside import SECOES
 from keycloak.screens.config.permissions import user_in_groups
 
@@ -18,7 +19,7 @@ def menu_app(context) -> dict:
     user = getattr(request, "user", None)
     caminho = getattr(request, "path", "")
     if not getattr(user, "is_authenticated", False):
-        return {"secoes": [], "ativo": None, "realm": "", "realms": []}
+        return {"secoes": [], "ativo": None, "realm": "", "realms": [], "servidores": [], "servidor": None}
 
     secoes = []
     for secao in SECOES:
@@ -39,6 +40,9 @@ def menu_app(context) -> dict:
         "ativo": ativo,
         "realm": context.get("realm") or "",
         "realms": context.get("realms") or [],
+        # Seletor do Keycloak (tela Servidores): o ativo vem do middleware
+        "servidores": servidores.disponiveis(),
+        "servidor": getattr(request, "keycloak", None),
     }
 
 

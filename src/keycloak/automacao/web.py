@@ -12,7 +12,8 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from keycloak.models import Aplicacao
 from keycloak.screens.config.permissions import user_in_groups
 
-from .api import ErroKeycloak, KeycloakAdmin, conexao
+from . import servidores
+from .api import ErroKeycloak, KeycloakAdmin, ativo, conexao, usar
 from .plano import Plano
 from .realm import listar_realms
 
@@ -24,24 +25,47 @@ _api: KeycloakAdmin | None = None
 
 
 def api() -> KeycloakAdmin:
-    """Uma conexão por processo, para reaproveitar o token do admin entre as requisições."""
+    """O Keycloak escolhido no menu; sem cadastro, o do ambiente (uma conexão por processo)."""
+    if (cliente := ativo()) is not None:
+        return cliente
     global _api
     if _api is None:
         _api = conexao()
     return _api
 
 
+def _chave_realms() -> str:
+    return f"{CHAVE_REALMS}:{api().url}"
+
+
 def realms_disponiveis() -> list[str]:
     """Realms que o assistente configura (o master fica de fora: é o do console)."""
-    nomes = cache.get(CHAVE_REALMS)
+    chave = _chave_realms()
+    nomes = cache.get(chave)
     if nomes is None:
         nomes = sorted(r["realm"] for r in listar_realms(api()) if r["realm"] != "master")
-        cache.set(CHAVE_REALMS, nomes, 30)
+        cache.set(chave, nomes, 30)
     return nomes
 
 
 def esquecer_realms() -> None:
-    cache.delete(CHAVE_REALMS)
+    cache.delete(_chave_realms())
+
+
+class KeycloakAtivoMiddleware:
+    """Ativa, em cada requisição, o Keycloak escolhido no menu (tela Servidores)."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        request.keycloak = None
+        if getattr(request, "user", None) is not None and request.user.is_authenticated:
+            request.keycloak = servidores.ativar(request.session)
+        try:
+            return self.get_response(request)
+        finally:
+            usar(None)  # a thread atende outra requisição em seguida
 
 
 def realm_ativo(request, realms: list[str]) -> str | None:
@@ -125,6 +149,21 @@ def executar(request, realm: str, etapa: str, funcao: Callable[[bool], Plano]) -
     else:
         messages.info(request, "Nada a mudar: o Keycloak já está como pedido.")
     return plano
+
+
+def trocar_servidor(request):
+    """Troca o Keycloak ativo (seletor do menu lateral). O realm volta ao padrão do novo servidor."""
+    destino = request.POST.get("next") or "/app/"
+    if not url_has_allowed_host_and_scheme(destino, allowed_hosts={request.get_host()}):
+        destino = "/app/"
+    if request.method == "POST":
+        chave = request.POST.get("servidor")
+        alvo = next((a for a in servidores.disponiveis() if a.chave == chave), None)
+        if alvo is not None and request.session.get(servidores.CHAVE_SESSAO) != chave:
+            request.session[servidores.CHAVE_SESSAO] = chave
+            request.session.pop("realm", None)
+            messages.info(request, f"Keycloak ativo: {alvo.nome} ({alvo.url}).")
+    return redirect(destino)
 
 
 def trocar_realm(request):

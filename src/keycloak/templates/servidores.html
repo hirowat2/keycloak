@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% load custom_filters %}
+{% block title %}Servidores Keycloak | Assistente Keycloak{% endblock %}
+
+{% block main %}
+<style>
+  #id_autenticacao label { display: flex; align-items: center; gap: 8px; margin: 2px 0 6px; font-weight: 400; }
+  #id_autenticacao input { width: auto; margin: 0; }
+</style>
+<div class="ct-page">
+  <header class="ct-header">
+    <div>
+      <p class="ct-eyebrow">Manutenção</p>
+      <h1 class="ct-title">Servidores Keycloak</h1>
+      <p class="ct-subtitle">Os Keycloaks que o assistente administra. Cadastre a URL e o admin do realm master; depois escolha o servidor no menu lateral, e todas as telas passam a trabalhar nele.</p>
+    </div>
+  </header>
+
+  {% if sem_acesso %}
+  {% else %}
+
+  {% if not pode_editar %}<div class="ct-info">Só administradores (role ADMIN) cadastram, editam ou removem servidores. Você pode escolher em qual trabalhar e testar a conexão.</div>{% endif %}
+
+  <section class="ct-card" id="lista">
+    <div class="ct-card-head ct-card-head--solto">
+      <h2>Cadastrados</h2>
+      <span class="ct-badge">{{ servidores|length }}</span>
+    </div>
+    {% if servidores %}
+      <div class="ct-table-wrap">
+        <table class="ct-table ct-table--compacta">
+          <thead><tr><th>Nome</th><th>URL pública</th><th>Admin API</th><th>Credencial</th><th></th></tr></thead>
+          <tbody>
+            {% for s in servidores %}
+              {% with cadastro=cadastros|chave:s.chave %}
+              <tr>
+                <td><b>{{ s.nome }}</b>{% if s.chave == ativo %} <span class="ct-badge ct-badge--ok">ativo</span>{% endif %}
+                  {% if s.ambiente %}<br><span class="ct-note">variáveis KEYCLOAK_* (também é o do login)</span>{% elif cadastro.criado_por %}<br><span class="ct-note">por {{ cadastro.criado_por.get_full_name|default:cadastro.criado_por.username }}</span>{% endif %}</td>
+                <td class="ct-codigo">{{ s.url }}</td>
+                <td class="ct-codigo">{% if s.url_interna %}{{ s.url_interna }}{% else %}<span class="ct-note">a pública</span>{% endif %}</td>
+                <td>{% if s.client_secret %}service account <code>{{ s.client_id }}</code>{% else %}admin <code>{{ s.usuario|default:"?" }}</code>{% endif %}{% if not s.verificar_tls %} · <span class="ct-badge ct-badge--alerta">TLS não verificado</span>{% endif %}{% if cadastro and cadastro.segredo and not s.senha and not s.client_secret %} · <span class="ct-badge ct-badge--alerta">digite a senha de novo</span>{% endif %}</td>
+                <td class="ct-nowrap">
+                  <form method="post" style="display:inline">
+                    {% csrf_token %}<input type="hidden" name="chave" value="{{ s.chave }}">
+                    {% if s.chave != ativo %}<button class="ct-btn ct-btn--pequeno ct-btn--primario" name="acao" value="usar" title="Trabalhar neste Keycloak"><i class="fa-solid fa-arrow-right-to-bracket"></i> Usar</button>{% endif %}
+                    <button class="ct-btn ct-btn--pequeno" name="acao" value="testar_existente"><i class="fa-solid fa-plug"></i> Testar</button>
+                    {% if pode_editar and not s.ambiente %}
+                      <a class="ct-btn ct-btn--pequeno" href="?editar={{ s.chave }}#formulario"><i class="fa-solid fa-pen"></i> Editar</a>
+                      <button class="ct-btn ct-btn--pequeno" name="acao" value="remover" data-confirmar="Remover {{ s.nome }} do assistente? Nada muda no Keycloak dele."><i class="fa-solid fa-trash"></i></button>
+                    {% endif %}
+                  </form>
+                </td>
+              </tr>
+              {% endwith %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="ct-note">Nenhum servidor ainda. Cadastre o primeiro abaixo.</p>
+    {% endif %}
+  </section>
+
+  {% if pode_editar %}
+  <section class="ct-card" id="formulario">
+    <div class="ct-card-head ct-card-head--solto">
+      <h2>{% if editando %}Editar {{ editando.nome }}{% else %}Cadastrar um Keycloak{% endif %}</h2>
+      {% if editando %}<a class="ct-btn ct-btn--pequeno" href="{{ request.path }}">Cancelar</a>{% endif %}
+    </div>
+    {% if teste %}<div class="{% if teste.ok %}ct-info{% else %}ct-alert{% endif %}"><strong>{% if teste.ok %}Conexão ok.{% else %}O Keycloak não aceitou a conexão.{% endif %}</strong> {{ teste.texto }}</div>{% endif %}
+    {% for e in form.non_field_errors %}<div class="ct-alert">{{ e }}</div>{% endfor %}
+    <form method="post" class="ct-cadastro" autocomplete="off">
+      {% csrf_token %}
+      {% if editando %}<input type="hidden" name="editar" value="{{ editando.pk }}">{% endif %}
+      <div class="ct-cadastro-campos">
+        {% for f in form %}
+          <div class="ct-field" data-campo="{{ f.name }}"><label for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}{% if f.help_text %}<span class="ct-note">{{ f.help_text }}</span>{% endif %}{% for e in f.errors %}<span class="ct-neg ct-note">{{ e }}</span>{% endfor %}</div>
+        {% endfor %}
+      </div>
+      <p class="ct-note">O assistente faz login no realm <code>master</code> desse Keycloak (<code>/realms/master/protocol/openid-connect/token</code>) e chama a Admin API. Use um admin do master ou, melhor em produção, um client confidential com service account e a role <code>admin</code> do master.</p>
+      <div class="ct-actions" style="margin-top:12px">
+        <button class="ct-btn" name="acao" value="testar"><i class="fa-solid fa-plug"></i> Testar</button>
+        <button class="ct-btn ct-btn--primario" name="acao" value="salvar"><i class="fa-solid fa-floppy-disk"></i> Testar e salvar</button>
+        {% if falhou_teste %}<button class="ct-btn" name="acao" value="salvar_sem_testar"><i class="fa-solid fa-triangle-exclamation"></i> Salvar mesmo assim</button>{% endif %}
+      </div>
+    </form>
+  </section>
+  {% endif %}
+
+  <section class="ct-info">
+    <b>Como funciona.</b> O servidor escolhido (aqui ou no menu lateral) vale só para a sua sessão; cada pessoa pode trabalhar num Keycloak diferente.
+    O Histórico guarda em qual servidor cada mudança foi feita. O login no assistente não muda: continua no Keycloak do ambiente.
+    A tela Banco do Keycloak fala com o PostgreSQL, não com a Admin API: a conexão dela é configurada lá.
+  </section>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Mostra só os campos da autenticação escolhida
+  (function () {
+    const radios = document.querySelectorAll('input[name="autenticacao"]');
+    const ajustar = () => {
+      const client = document.querySelector('input[name="autenticacao"]:checked')?.value === "client";
+      document.querySelector('[data-campo="usuario"]')?.toggleAttribute("hidden", client);
+      document.querySelector('[data-campo="client_id"]')?.toggleAttribute("hidden", !client);
+    };
+    radios.forEach((r) => r.addEventListener("change", ajustar));
+    ajustar();
+    document.querySelectorAll("[data-confirmar]").forEach((b) =>
+      b.addEventListener("click", (e) => { if (!confirm(b.dataset.confirmar)) e.preventDefault(); }));
+  })();
+</script>
+{% endblock %}

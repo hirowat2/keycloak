@@ -74,7 +74,7 @@ def test_metodologia_tem_uma_secao_por_etapa(entrar) -> None:
     from keycloak.screens.metodologia.view import ETAPAS
 
     html = entrar("Limited").get("/app/metodologia/").content.decode()
-    for etapa in ["realm", "grupos", "sso", "mapeamento", "conferir", "migracao", "banco"]:
+    for etapa in ["realm", "grupos", "sso", "mapeamento", "conferir", "migracao", "banco", "servidores"]:
         assert f'id="{etapa}"' in html and f'href="#{etapa}"' in html
     # Diagramas com "{{" seriam lidos como variável do Django e quebrariam o Mermaid
     assert all("{{" not in e["diagrama"] for e in ETAPAS) and 'T(["Teste de login' in html
@@ -86,6 +86,7 @@ def test_manual_tem_um_caso_por_tarefa(entrar) -> None:
     from keycloak.screens.manual.view import CASOS
 
     html = entrar("Limited").get("/app/manual/").content.decode()
+    assert any(c["id"] == "outro-keycloak" for c in CASOS)
     for caso in CASOS:
         assert f'id="{caso["id"]}"' in html and f'href="#{caso["id"]}"' in html
         assert "{{" not in caso["diagrama"]
@@ -110,3 +111,35 @@ def test_prints_e_telas_citados_existem() -> None:
     links = {tela for c in CASOS for _, tela, _ in c["passos"] if tela} | {url for url, *_ in TELAS_MANUAL} | {e["tela"] for e in ETAPAS}
     nomes = {link.split("/")[2] for link in links}
     assert sorted(n for n in nomes if not os.path.isfile(os.path.join(telas, n, "view.py"))) == []
+
+
+def test_guia_do_azure_usa_os_valores_do_realm(entrar, monkeypatch) -> None:
+    """As URLs, os grupos e o texto para o time do Azure saem do realm ativo e do alias."""
+    from keycloak.automacao import saml
+    from keycloak.screens.entra import view as entra
+
+    monkeypatch.setenv("KEYCLOAK_HOST", "https://kc.exemplo/")
+    monkeypatch.setattr(web, "realms_disponiveis", lambda: ["empresa-x"])
+    monkeypatch.setattr(web, "_api", SemKeycloak())
+    monkeypatch.setattr(entra.servico, "listar_provedores", lambda c, r: [])
+    monkeypatch.setattr(entra, "ler_grupos", lambda c, r: {"empresa-x-admins": [], "empresa-x-atlas": []})
+    html = entrar("Limited").get("/app/entra/?alias=azure&app=Empresa X").content.decode()
+    assert "https://kc.exemplo/realms/empresa-x/broker/azure/endpoint" in html
+    assert 'id="en-texto"' in html and "   - empresa-x-atlas" in html and "Nome: Empresa X" in html
+    assert "AADSTS50105" in html and saml.CHAVE_GRUPOS_ENTRA_LONGA in html
+
+
+def test_guia_do_azure_tem_as_ilustracoes() -> None:
+    """Toda ilustração citada no passo a passo existe (make ilustracoes-azure) e o nome do app vem escapado."""
+    import os
+
+    from django.conf import settings
+
+    from keycloak.screens.entra.view import passos
+
+    lista = passos("<script>x</script>", {"entity_id": "https://kc/realms/r", "acs": "https://kc/realms/r/broker/a/endpoint",
+                                          "logout": "https://kc/realms/r/broker/a/endpoint"}, "a", ["r-atlas"], None)
+    assert len(lista) == 13
+    figuras = {f for p in lista for f, _ in p["figuras"]}
+    assert sorted(f for f in figuras if not os.path.exists(os.path.join(settings.MEDIA_ROOT, "entra", f))) == []
+    assert all("<script>" not in t for p in lista for _, t in p["itens"])

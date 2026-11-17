@@ -89,6 +89,18 @@ async function ocultar(page) {
       const citados = [...linha.querySelectorAll(".ct-codigo, code, input[name=realm]")];
       if (citados.some((el) => nomes.has(el.value || primeiraPalavra(el)))) linha.remove();
     });
+    // Listas de realms em texto (ex.: o resultado do Testar da tela Servidores)
+    document.querySelectorAll(".ct-info, .ct-alert, .app-toast p").forEach((el) => {
+      if (!nomes.size || !/realm\(s\):/.test(el.textContent)) return;
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      for (let no = walker.nextNode(); no; no = walker.nextNode()) {
+        no.textContent = no.textContent
+          .replace(/(\d+) realm\(s\): ([^.]*)/, (_, n, lista) => {
+            const visiveis = lista.split(", ").filter((r) => !nomes.has(r.replace("…", "")));
+            return `${visiveis.length} realm(s): ${visiveis.join(", ")}`;
+          });
+      }
+    });
   }, ocultos);
 }
 
@@ -113,6 +125,12 @@ async function print(page, arquivo, marcas = [], inteira = true) {
   const contexto = await navegador.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1360, height: 860 }, locale: "pt-BR" });
   const page = await contexto.newPage();
   page.on("dialog", (d) => d.accept());
+  // O django-debug-toolbar (DEBUG=true no compose) cobre botões da direita: some de todas as páginas
+  await contexto.addInitScript(() => document.addEventListener("DOMContentLoaded", () => {
+    const estilo = document.createElement("style");
+    estilo.textContent = "#djDebug { display: none !important; }";
+    document.head.appendChild(estilo);
+  }));
   const ir = (tela) => page.goto(`${APP}${tela}`, { waitUntil: "networkidle" });
   const aplicar = async (valor = "aplicar") => {
     await page.click(`button[value=${valor}]`);
@@ -133,6 +151,33 @@ async function print(page, arquivo, marcas = [], inteira = true) {
   // Painel
   await ir("/app/painel/");
   await print(page, "03-painel.png", [["#realm-ativo", 1], [".app-nav", 2], [".ct-header .ct-btn--primario", 3]]);
+
+  // Servidores Keycloak: cadastra este mesmo Keycloak como exemplo, fotografa e remove
+  const EXEMPLO = "Homologação (exemplo)";
+  const removerExemplo = async () => {
+    await ir("/app/servidores/");
+    const linha = page.locator(`#lista tr:has-text("${EXEMPLO}")`);
+    if (await linha.count()) {
+      if (await linha.locator("button[value=usar]").count() === 0) {
+        await Promise.all([page.waitForNavigation(), page.click('#lista form:has(input[value=ambiente]) button[value=usar]')]);
+        await ir("/app/servidores/");
+      }
+      await Promise.all([page.waitForNavigation(), linha.locator("button[value=remover]").click()]);
+    }
+  };
+  await removerExemplo();
+  await page.fill("#id_nome", EXEMPLO);
+  await page.fill("#id_url", KC);
+  await page.fill("#id_url_interna", "http://keycloak:8080");
+  await page.fill("#id_usuario", process.env.KC_ADMIN_USER || "admin");
+  await page.fill("#id_segredo", process.env.KC_ADMIN_PASSWORD || "admin");
+  await Promise.all([page.waitForNavigation(), page.click("button[value=testar]")]);
+  await page.fill("#id_segredo", process.env.KC_ADMIN_PASSWORD || "admin");
+  await print(page, "26-servidores-cadastro.png", [["#id_url", 1], ["#id_url_interna", 2], ['[data-campo="autenticacao"]', 3], ["#formulario .ct-info", 4], ["button[value=salvar]", 5]]);
+  await Promise.all([page.waitForNavigation(), page.click("button[value=salvar]")]);
+  await page.evaluate(() => document.querySelectorAll("[data-toast]").forEach((t) => t.remove()));
+  await print(page, "27-servidores-lista.png", [["#lista table", 1], ["#servidor-ativo", 2]]);
+  await removerExemplo();
 
   // Etapa 1
   await ir("/app/realm/?novo=1");
@@ -166,6 +211,16 @@ async function print(page, arquivo, marcas = [], inteira = true) {
   await print(page, "08-sso-urls.png", [["#url-entity", 1], ["#url-acs", 2], ["[data-copiar=url-acs]", 3]], false);
   await page.locator("details").first().scrollIntoViewIfNeeded();
   await print(page, "09-sso-roteiro.png", [["details[open]", 1]], false);
+  // Guia do Azure AD com os valores do realm de demonstração
+  await ir("/app/entra/?alias=entra");
+  await page.locator("#p5").scrollIntoViewIfNeeded();
+  await page.evaluate(() => document.getElementById("p5").scrollIntoView({ block: "start" }));
+  await page.evaluate(() => window.scrollBy(0, -70));
+  await print(page, "28-entra-guia.png", [["#p5 .en-itens", 1], ["#p5 .en-figura", 2], ["#en-entity", 3]], false);
+  await page.locator("#email").scrollIntoViewIfNeeded();
+  await print(page, "29-entra-email.png", [["#en-texto", 1], ["[data-copiar=en-texto]", 2]], false);
+  await ir("/app/sso/");
+  await page.fill("#id_alias", "entra");
   await page.fill("#id_metadata_url", METADATA);
   await page.locator("#cadastro").scrollIntoViewIfNeeded();
   await print(page, "10-sso-formulario.png", [["#id_tipo", 1], ["#id_alias", 2], ["#id_metadata_url", 3], ["#id_login_direto", 4]], false);

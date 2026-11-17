@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% load custom_filters %}
+{% block title %}Azure AD (Entra ID) | Assistente Keycloak{% endblock %}
+
+{% block main %}
+<style>
+  .en-passo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 18px; align-items: start; margin-top: 10px; }
+  .en-itens { list-style: none; padding: 0; margin: 6px 0 0; }
+  .en-itens li { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 10px; }
+  .en-n { flex: none; width: 24px; height: 24px; border-radius: 50%; background: #e11d48; color: #fff; font: 700 13px/24px sans-serif; text-align: center; }
+  .en-figura { margin: 0 0 12px; }
+  .en-figura figcaption { margin-top: 4px; }
+  .en-passo .mt-figura img { width: 100%; border: 1px solid var(--ct-borda, #dde3ea); border-radius: 8px; }
+  .en-checklist { list-style: none; padding: 0; margin: 0; }
+  .en-checklist li { display: flex; gap: 8px; align-items: baseline; padding: 4px 0; }
+  .en-ok { color: var(--ct-pos); } .en-falta { color: var(--ct-neg, #b42318); }
+  .ct-quebra { word-break: break-all; }
+  .en-email { white-space: pre-wrap; font-size: 13px; max-height: 360px; overflow: auto; }
+  @media (max-width: 900px) { .en-passo { grid-template-columns: 1fr; } }
+</style>
+<div class="ct-page">
+  <header class="ct-header">
+    <div>
+      <p class="ct-eyebrow">Etapa 3 · SSO corporativo</p>
+      <h1 class="ct-title">Configurar o Azure AD (Microsoft Entra ID)</h1>
+      <p class="ct-subtitle">O que fazer no portal do Azure para o login com a conta Microsoft do cliente, com os valores do realm <b>{{ realm|default:"(nenhum realm)" }}</b> já preenchidos. O Azure é o Identity Provider; o Keycloak é o Service Provider. Nada aqui muda o Keycloak: o cadastro é a <a href="/app/sso/">etapa 3</a> e os grupos, a <a href="/app/mapeamento/">etapa 4</a>. Para um app do Azure que já existe (ex.: depois de trocar o host do Keycloak), use <a href="/app/azure/">Azure AD dos realms</a>.</p>
+    </div>
+    <a class="ct-btn" href="#email"><i class="fa-regular fa-envelope"></i> Texto para o time do Azure</a>
+  </header>
+
+  <form method="get" class="ct-card ct-cadastro">
+    <h2>Seus valores</h2>
+    <div class="ct-cadastro-campos">
+      <div class="ct-field"><label for="alias">Alias do provedor</label><input id="alias" name="alias" value="{{ alias }}" pattern="[a-z0-9-]+"><span class="ct-note">O mesmo da etapa 3. Entra na Reply URL e não muda depois.</span></div>
+      <div class="ct-field"><label for="app">Nome do app no Azure</label><input id="app" name="app" value="{{ app }}"><span class="ct-note">Como aparece em Enterprise applications e no My Apps.</span></div>
+    </div>
+    <div class="ct-actions" style="margin-top:10px"><button class="ct-btn">Atualizar o guia</button></div>
+  </form>
+
+  <div class="ct-grid ct-grid--2">
+    <section class="ct-card">
+      <h2>Antes de começar</h2>
+      <ul class="mn-lista">
+        <li>Quem faz no Azure precisa ser <b>Application Administrator</b> (ou Cloud Application Administrator) e poder criar grupos (<b>Groups Administrator</b> ou dono dos grupos).</li>
+        <li>Atribuir <b>grupos</b> ao app exige licença <b>Microsoft Entra ID P1 ou P2</b>. Sem ela, só dá para atribuir usuário por usuário.</li>
+        <li>O realm e os grupos já devem existir no Keycloak (etapas 1 e 2): os nomes dos grupos do Azure serão os mesmos.</li>
+        <li>O Azure não precisa acessar o Keycloak pela rede: ele só redireciona o navegador. Mas a URL do Keycloak precisa ser HTTPS.</li>
+      </ul>
+    </section>
+    <section class="ct-card">
+      <h2>Andamento</h2>
+      <ul class="en-checklist">
+        {% for item, feito in checklist %}
+          <li>{% if feito is None %}<i class="fa-regular fa-square" title="feito no Azure: confira com o time"></i>{% elif feito %}<i class="fa-solid fa-circle-check en-ok"></i>{% else %}<i class="fa-solid fa-circle-xmark en-falta"></i>{% endif %} {{ item }}</li>
+        {% endfor %}
+      </ul>
+      <p class="ct-note">Os itens do Azure não dá para conferir daqui: marque com o time. Os do Keycloak vêm do realm ativo.</p>
+    </section>
+  </div>
+
+  <section class="ct-card">
+    <h2>Como o login funciona</h2>
+    <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant U as Usuário
+    participant A as App
+    participant K as Keycloak (realm {{ realm|default:"realm" }})
+    participant E as Azure AD (Entra ID)
+    U->>A: abre o app
+    A->>K: redireciona para o login
+    K->>E: AuthnRequest SAML (Entity ID do Keycloak)
+    E->>E: login Microsoft + MFA<br/>confere se o usuário está num grupo atribuído
+    E->>K: asserção SAML na Reply URL<br/>e-mail, nome, sobrenome e groups
+    K->>K: cria ou atualiza o usuário<br/>grupo do Azure → grupo do Keycloak → roles
+    K->>A: token com as roles
+    A->>U: acesso liberado</pre>
+  </section>
+
+  <nav class="ct-card ct-actions" style="flex-wrap:wrap" aria-label="Passos">
+    {% for p in passos %}<a class="ct-btn ct-btn--pequeno" href="#{{ p.id }}">{{ forloop.counter }} · {{ p.titulo }}</a>{% endfor %}
+  </nav>
+
+  {% for p in passos %}
+  <section class="ct-card" id="{{ p.id }}">
+    <p class="ct-eyebrow">Passo {{ forloop.counter }} · {{ p.onde }}</p>
+    <h2>{{ p.titulo }}</h2>
+    <p class="ct-note" style="margin-top:0"><i class="fa-solid fa-route"></i> {{ p.caminho }}</p>
+    <div class="en-passo">
+      <div>
+        <ol class="en-itens">
+          {% for n, texto in p.itens %}<li><span class="en-n">{{ n }}</span><div>{{ texto }}</div></li>{% endfor %}
+        </ol>
+        {% if p.nota %}<div class="ct-info" style="margin-top:10px">{{ p.nota }}</div>{% endif %}
+      </div>
+      <div>
+        {% for arquivo, legenda in p.figuras %}
+          <figure class="en-figura">
+            <a class="mt-figura" href="{% media_url 'entra/'|add:arquivo %}" target="_blank" rel="noopener" title="Abrir em tamanho real"><img src="{% media_url 'entra/'|add:arquivo %}" alt="{{ legenda }}" loading="lazy"></a>
+            <figcaption class="ct-note">{{ legenda }} · ilustração com valores de exemplo</figcaption>
+          </figure>
+        {% endfor %}
+      </div>
+    </div>
+
+    {% if p.id == "p5" %}
+      <table class="ct-table ct-table--compacta mt-tabela" style="margin-top:12px">
+        <thead><tr><th>Campo no Azure</th><th>Valor deste realm</th><th></th></tr></thead>
+        <tbody>
+          <tr><td><b>Identificador (ID da Entidade)</b></td><td class="ct-codigo" id="en-entity">{{ urls.entity_id }}</td><td><button type="button" class="ct-btn ct-btn--pequeno" data-copiar="en-entity"><i class="fa-regular fa-copy"></i> Copiar</button></td></tr>
+          <tr><td><b>URL de Resposta</b></td><td class="ct-codigo" id="en-acs">{{ urls.acs }}</td><td><button type="button" class="ct-btn ct-btn--pequeno" data-copiar="en-acs"><i class="fa-regular fa-copy"></i> Copiar</button></td></tr>
+          <tr><td>URL de logoff</td><td class="ct-codigo" id="en-logout">{{ urls.logout }}</td><td><button type="button" class="ct-btn ct-btn--pequeno" data-copiar="en-logout"><i class="fa-regular fa-copy"></i> Copiar</button></td></tr>
+        </tbody>
+      </table>
+    {% elif p.id == "p6" %}
+      <table class="ct-table ct-table--compacta mt-tabela" style="margin-top:12px">
+        <thead><tr><th>Declaração no Azure</th><th>Valor (atributo de origem)</th><th>Para quê no Keycloak</th></tr></thead>
+        <tbody>{% for nome, longo, origem, para in claims %}<tr><td><b>{{ nome }}</b><br><span class="ct-note ct-codigo ct-quebra">{{ longo }}</span></td><td class="ct-codigo">{{ origem }}</td><td>{{ para }}</td></tr>{% endfor %}</tbody>
+      </table>
+    {% elif p.id == "p7" %}
+      <table class="ct-table ct-table--compacta mt-tabela" style="margin-top:12px">
+        <thead><tr><th>Atributo de origem</th><th>O que chega</th><th>Valor no mapper (etapa 4)</th></tr></thead>
+        <tbody>
+          <tr><td>Nomes de exibição de grupo somente nuvem <span class="ct-badge ct-badge--ok">recomendado</span></td><td class="ct-codigo">{{ grupos.0|default:"empresa-x-atlas" }}</td><td>o nome do grupo</td></tr>
+          <tr><td>sAMAccountName (AD sincronizado)</td><td class="ct-codigo">{{ grupos.0|default:"empresa-x-atlas" }}</td><td>o nome do grupo no AD</td></tr>
+          <tr><td>ID do Grupo</td><td class="ct-codigo">3f1c9b0e-5a7d-4c1e-…</td><td>o ID de objeto do grupo (Grupos → o grupo → Visão geral)</td></tr>
+        </tbody>
+      </table>
+    {% elif p.id == "p9" %}
+      {% if grupos %}
+        <table class="ct-table ct-table--compacta mt-tabela" style="margin-top:12px">
+          <thead><tr><th>Nome do grupo no Azure</th><th>Etapa 4</th></tr></thead>
+          <tbody>{% for g in grupos %}<tr><td class="ct-codigo">{{ g }}</td><td>{% if g in mapeados %}<span class="ct-badge ct-badge--ok">mapeado</span>{% else %}<span class="ct-badge">falta mapear</span>{% endif %}</td></tr>{% endfor %}</tbody>
+        </table>
+      {% else %}
+        <div class="ct-info" style="margin-top:12px">O realm ainda não tem grupos. Crie-os na <a href="/app/grupos/">etapa 2</a> antes, para usar os mesmos nomes no Azure.</div>
+      {% endif %}
+    {% endif %}
+  </section>
+  {% endfor %}
+
+  {# ------------------------------------------------------------------ Erros #}
+  <section class="ct-card ct-card--flush" id="erros">
+    <div class="ct-card-head"><h2>Se der errado</h2></div>
+    <div class="ct-table-wrap">
+      <table class="ct-table ct-table--compacta">
+        <thead><tr><th>Erro</th><th>Mensagem</th><th>O que fazer</th></tr></thead>
+        <tbody>{% for codigo, mensagem, acao in erros %}<tr><td class="ct-nowrap"><b>{{ codigo }}</b></td><td>{{ mensagem }}</td><td>{{ acao }}</td></tr>{% endfor %}</tbody>
+      </table>
+    </div>
+    <p class="ct-note" style="padding:0 16px 14px">Para ver a asserção que o Azure mandou: extensão <em>SAML-tracer</em> (Firefox/Chrome) durante o login, ou no Azure em <b>Sign-in logs</b> filtrando pelo app.</p>
+  </section>
+
+  {# ------------------------------------------------------------------ E-mail #}
+  <section class="ct-card" id="email">
+    <div class="ct-card-head ct-card-head--solto">
+      <h2>Texto para o time do Azure</h2>
+      <button type="button" class="ct-btn ct-btn--pequeno" data-copiar="en-texto"><i class="fa-regular fa-copy"></i> Copiar</button>
+    </div>
+    <pre class="ct-codigo en-email" id="en-texto">Olá,
+
+Precisamos de uma aplicação SAML no Microsoft Entra ID para o login no {{ app }}.
+
+1. Enterprise applications → New application → Create your own application →
+   "Integrate any other application (Non-gallery)". Nome: {{ app }}
+
+2. Single sign-on → SAML → Basic SAML Configuration
+   Identifier (Entity ID): {{ urls.entity_id }}
+   Reply URL (ACS):        {{ urls.acs }}
+   Logout URL:             {{ urls.logout }}
+   SAML Certificates → Signing Option: Sign SAML response and assertion (SHA-256)
+
+3. Attributes & Claims: manter emailaddress, givenname, surname e o Unique User Identifier.
+   Add a group claim:
+   - Groups assigned to the application
+   - Source attribute: Cloud-only group display names
+   - Customize the name of the group claim: Name "groups", Namespace vazio
+   - Emit groups as role claims: desmarcado
+
+4. Grupos de segurança (Security, Assigned), um por perfil de acesso:
+{% for g in grupos %}   - {{ g }}
+{% empty %}   - (os nomes serão enviados à parte)
+{% endfor %}
+5. Users and groups: atribuir só esses grupos. Properties: Assignment required = Yes.
+
+6. Por favor, nos devolvam a App Federation Metadata Url (em SAML Certificates)
+   e o e-mail de um usuário de teste que esteja em um dos grupos.
+
+Obrigado!</pre>
+  </section>
+</div>
+{% endblock main %}
+
+{% block extra_js %}
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: document.documentElement.classList.contains("dark") ? "dark" : "neutral",
+    securityLevel: "strict",
+  });
+</script>
+{% endblock extra_js %}

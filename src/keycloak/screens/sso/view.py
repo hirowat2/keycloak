@@ -78,6 +78,7 @@ def view(context, request, realm) -> dict[str, Any]:
             "urls": servico.urls_sp(url_publica(), realm, alias),
             "modelo": servico.urls_sp(url_publica(), realm, "__ALIAS__"),
             "atributos": servico.PROVEDORES,
+            "alias": alias,
         }
     )
     return {"request": request, "context": context}

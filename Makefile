@@ -88,6 +88,11 @@ prints:
 	@npx -y playwright@$(PLAYWRIGHT_VERSION) install chromium
 	@NODE_NO_WARNINGS=1 node scripts/capturar_prints.cjs
 
+# Ilustrações do portal do Azure para o Guia do Azure AD (media/entra/az-*.png): HTML com valores fictícios, não capturas.
+ilustracoes-azure:
+	@npx -y playwright@$(PLAYWRIGHT_VERSION) install chromium
+	@NODE_NO_WARNINGS=1 node scripts/ilustracoes_azure.cjs
+
 der:
 	@if pacman -Qq graphviz >/dev/null 2>&1; then \
 		echo "Generating diagrams for ${PROJECT_NAME}..."; \

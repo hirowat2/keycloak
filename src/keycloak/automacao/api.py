@@ -6,6 +6,7 @@ Com ``KEYCLOAK_ADMIN_CLIENT_SECRET``, usa um client com service account
 """
 
 import time
+from contextvars import ContextVar
 from os import environ
 from urllib.parse import quote
 
@@ -35,8 +36,11 @@ class KeycloakAdmin:
         client_secret: str = "",
         verificar_tls: bool = True,
         timeout: int = 20,
+        publica: str = "",
     ):
         self.url = url.rstrip("/")
+        # Endereço que o navegador enxerga (URLs para o SSO e para os apps); ``url`` é o da Admin API.
+        self.publica = (publica or url).rstrip("/")
         self.usuario, self.senha = usuario, senha
         self.client_id, self.client_secret = client_id, client_secret
         self.timeout = timeout
@@ -106,12 +110,28 @@ def seg(texto: str) -> str:
     return quote(str(texto), safe="")
 
 
+# O Keycloak escolhido no menu (tela Servidores), ativado por requisição; None = o do ambiente.
+_ativo: ContextVar["KeycloakAdmin | None"] = ContextVar("keycloak_ativo", default=None)
+
+
+def usar(cliente: "KeycloakAdmin | None"):
+    return _ativo.set(cliente)
+
+
+def ativo() -> "KeycloakAdmin | None":
+    return _ativo.get()
+
+
 def url_publica() -> str:
-    """Endereço do Keycloak que o navegador e o SSO enxergam (o ``KC_HOST``)."""
+    """Endereço do Keycloak que o navegador e o SSO enxergam (o do servidor ativo ou o ``KC_HOST``)."""
+    if (cliente := _ativo.get()) is not None:
+        return cliente.publica
     return environ.get("KEYCLOAK_HOST", "").rstrip("/")
 
 
 def url_interna() -> str:
+    if (cliente := _ativo.get()) is not None:
+        return cliente.url
     return (environ.get("KEYCLOAK_INTERNAL_URL") or environ.get("KEYCLOAK_HOST", "")).rstrip("/")
 
 

@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Azure AD dos realms | Assistente Keycloak{% endblock %}
+
+{% block main %}
+<div class="ct-page">
+  <header class="ct-header">
+    <div>
+      <p class="ct-eyebrow">Manutenção</p>
+      <h1 class="ct-title">Azure AD dos realms</h1>
+      <p class="ct-subtitle">Os logins com conta Microsoft que já existem nos realms. Mostra o que cada app do Azure precisa ter com o host atual (<code>{{ host }}</code>), compara com o que está lá e acerta o lado do Keycloak. Para criar um do zero, use o <a href="/app/entra/">Guia do Azure AD</a>.</p>
+    </div>
+  </header>
+
+  {# ---------------------------------------------------------------- Inventário #}
+  <section class="ct-card ct-card--flush" id="inventario">
+    <div class="ct-card-head">
+      <h2>Provedores ligados ao Azure</h2>
+      <span class="ct-badge {% if com_problema %}ct-badge--alerta{% else %}ct-badge--ok{% endif %}">{{ itens|length }} provedor{{ itens|length|pluralize:"es" }}{% if com_problema %} · {{ com_problema }} para ajustar{% endif %}</span>
+    </div>
+    {% if itens %}
+    <div class="ct-table-wrap">
+      <table class="ct-table ct-table--compacta">
+        <thead><tr><th>Realm</th><th>Provedor</th><th>Tenant do Azure</th><th>Entity ID no Keycloak</th><th>Situação</th><th></th></tr></thead>
+        <tbody>
+          {% for i in itens %}
+          <tr {% if item and i.realm == item.realm and i.alias == item.alias %}class="is-ativo"{% endif %}>
+            <td class="ct-codigo">{{ i.realm }}</td>
+            <td><b>{{ i.alias }}</b>{% if not i.ativo %} <span class="ct-badge">desligado</span>{% endif %}<br><span class="ct-note">{{ i.mappers|length }} mapper{{ i.mappers|length|pluralize }}</span></td>
+            <td><code>{{ i.tenant }}</code></td>
+            <td><code class="ct-quebra">{{ i.entity_atual|default:"(vazio)" }}</code></td>
+            <td>{% for p in i.problemas %}<span class="ct-badge ct-badge--alerta">{{ p }}</span> {% empty %}<span class="ct-badge ct-badge--ok">ok</span>{% endfor %}</td>
+            <td class="ct-nowrap">
+              {% if i.realm == realm %}
+                <a class="ct-btn ct-btn--pequeno" href="?alias={{ i.alias }}#detalhe">Configurar</a>
+              {% else %}
+                <form method="post" action="/app/realm-ativo/" style="display:inline">{% csrf_token %}
+                  <input type="hidden" name="realm" value="{{ i.realm }}"><input type="hidden" name="next" value="/app/azure/?alias={{ i.alias }}#detalhe">
+                  <button class="ct-btn ct-btn--pequeno" title="Troca o realm ativo para {{ i.realm }}">Configurar</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="ct-note" style="padding:0 16px 14px"><b>Assinatura não validada</b> é grave: o Keycloak aceita qualquer resposta SAML, então alguém pode forjar uma e entrar como qualquer usuário do realm. <b>Entity ID no host antigo</b> aparece depois de migrar de servidor: a Migração da VM troca o host nos clients, não nos provedores.</p>
+    {% else %}
+      <p class="ct-note" style="padding:0 16px 14px">Nenhum realm tem provedor SAML apontando para o Azure (login.microsoftonline.com).</p>
+    {% endif %}
+  </section>
+
+  {% if item %}
+  {% include "plano.html" %}
+
+  {# ---------------------------------------------------------------- Detalhe #}
+  <section class="ct-card ct-card--flush" id="detalhe">
+    <div class="ct-card-head"><div><p class="ct-eyebrow">Realm {{ item.realm }} · provedor {{ item.alias }}</p><h2>1 · O que o app do Azure precisa ter</h2></div></div>
+    <div class="ct-table-wrap">
+      <table class="ct-table ct-table--compacta">
+        <thead><tr><th>No Azure (português / inglês)</th><th>Valor</th><th></th></tr></thead>
+        <tbody>
+          <tr><td><b>Identificador (ID da Entidade)</b> / Identifier (Entity ID)</td><td class="ct-codigo" id="az-entity">{{ item.entity_esperado }}</td><td><button type="button" class="ct-btn ct-btn--pequeno" data-copiar="az-entity"><i class="fa-regular fa-copy"></i> Copiar</button></td></tr>
+          <tr><td><b>URL de Resposta</b> / Reply URL (ACS)</td><td class="ct-codigo" id="az-reply">{{ item.reply }}</td><td><button type="button" class="ct-btn ct-btn--pequeno" data-copiar="az-reply"><i class="fa-regular fa-copy"></i> Copiar</button></td></tr>
+          <tr><td>URL de logon / Sign on URL</td><td colspan="2"><span class="ct-note">em branco</span></td></tr>
+          <tr><td>URL de logoff / Logout URL (opcional)</td><td class="ct-codigo">{{ item.reply }}</td><td></td></tr>
+          <tr><td>Tenant (ID do diretório)</td><td class="ct-codigo">{{ item.tenant }}</td><td><a class="ct-btn ct-btn--pequeno" href="https://entra.microsoft.com/{{ item.tenant }}/#view/Microsoft_AAD_IAM/StartboardApplicationsMenuBlade/~/AppAppsPreview" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square"></i> Apps do tenant</a></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="ct-note" style="padding:0 16px 14px">Onde fica: <b>Aplicativos empresariais → o app → Logon único → Configuração Básica do SAML → Editar</b>. A "URL de Resposta" de <em>Propriedades</em> é só a padrão; a lista completa está em Logon único. O Keycloak sempre pede a resposta em <code>…/broker/{{ item.alias }}/endpoint</code>: um endereço só com <code>/realms/{{ item.realm }}</code> não é usado.</p>
+  </section>
+
+  {# ---------------------------------------------------------------- Comparar #}
+  <form method="get" class="ct-card ct-cadastro" id="comparar" action="#comparar">
+    <h2>2 · Comparar com o que está no Azure</h2>
+    <input type="hidden" name="alias" value="{{ item.alias }}">
+    <div class="ct-cadastro-campos">
+      <div class="ct-field"><label for="identificador">Identificador(es) no Azure</label><textarea id="identificador" name="identificador" rows="2" placeholder="um por linha">{{ identificador }}</textarea></div>
+      <div class="ct-field"><label for="resposta">URL(s) de Resposta no Azure</label><textarea id="resposta" name="resposta" rows="2" placeholder="um por linha, ex.: https://keycloak.estatcamp.online/realms/{{ item.realm }}">{{ resposta }}</textarea></div>
+    </div>
+    <div class="ct-actions" style="margin-top:10px"><button class="ct-btn"><i class="fa-solid fa-code-compare"></i> Comparar</button></div>
+    {% if comparacao %}
+      <table class="ct-table ct-table--compacta mt-tabela" style="margin-top:12px">
+        <thead><tr><th>Campo</th><th>Situação</th><th>O que fazer no Azure</th></tr></thead>
+        <tbody>
+          {% for c in comparacao %}
+          <tr>
+            <td><b>{{ c.campo }}</b></td>
+            <td>{% if c.ok %}<span class="ct-badge ct-badge--ok">tem o valor certo</span>{% else %}<span class="ct-badge ct-badge--alerta">falta o valor certo</span>{% endif %}</td>
+            <td>{% if not c.ok %}Adicionar <code class="ct-quebra">{{ c.certo }}</code>{% if "Resposta" in c.campo %} e marcar como <b>Padrão</b>{% endif %}.{% endif %}
+              {% if c.sobra %}<br><span class="ct-note">Depois de testar o login, remover: {% for v in c.sobra %}<code class="ct-quebra">{{ v }}</code>{% if not forloop.last %}, {% endif %}{% endfor %}</span>{% endif %}
+              {% if c.ok and not c.sobra %}nada{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+  </form>
+
+  {# ---------------------------------------------------------------- Ordem #}
+  <section class="ct-card" id="ordem">
+    <h2>3 · Ordem para trocar sem derrubar o login</h2>
+    <pre class="mermaid">
+flowchart LR
+    A["Azure: ADICIONAR<br/>o Identificador e a<br/>URL de Resposta novos<br/>(manter os antigos)"] --> B["Assistente: Aplicar<br/>Entity ID novo<br/>+ ID do Aplicativo"]
+    B --> C(["Testar o login<br/>em janela anônima"])
+    C --> D["Azure: remover os<br/>valores antigos"]
+    C -. "falhou" .-> E["Histórico + tabela<br/>de erros do Guia"]</pre>
+    <ol class="mn-lista">
+      <li><b>No Azure</b>, em Configuração Básica do SAML: adicione o Identificador e a URL de Resposta do item 1 (o Azure aceita vários) e marque a URL nova como <b>Padrão</b>. Salve. Os antigos continuam valendo enquanto o Keycloak não muda.</li>
+      <li><b>Aqui</b>, no item 4: simule e aplique. O Keycloak passa a se apresentar com o Entity ID novo e a validar a assinatura do app.</li>
+      <li><b>Teste</b>: <a href="{{ host }}/realms/{{ item.realm }}/account" target="_blank" rel="noopener">{{ host }}/realms/{{ item.realm }}/account</a> numa janela anônima → "{{ item.nome }}".</li>
+      <li><b>No Azure</b>, remova o Identificador e a URL de Resposta antigos (item 2 mostra quais).</li>
+    </ol>
+  </section>
+
+  {# ---------------------------------------------------------------- Ajuste #}
+  <form method="post" class="ct-card ct-cadastro" id="ajuste">
+    <h2>4 · Acertar o Keycloak</h2>
+    {% csrf_token %}<input type="hidden" name="realm_tela" value="{{ realm }}">{{ form.alias }}
+    <table class="ct-table ct-table--compacta mt-tabela">
+      <tbody>
+        <tr><td>Entity ID</td><td><code class="ct-quebra">{{ item.entity_atual|default:"(vazio)" }}</code>{% if item.entity_atual != item.entity_esperado %} → <code class="ct-quebra">{{ item.entity_esperado }}</code>{% else %} <span class="ct-badge ct-badge--ok">no host atual</span>{% endif %}</td></tr>
+        <tr><td>Assinatura</td><td>{% if item.valida_assinatura %}<span class="ct-badge ct-badge--ok">validada</span>{% else %}<span class="ct-badge ct-badge--alerta">não validada</span> informe o ID do Aplicativo abaixo{% endif %}{% if not item.tem_certificado %} · sem certificado do Azure{% endif %}</td></tr>
+        <tr><td>NameID</td><td><code>{{ item.nameid|default:"?" }}</code></td></tr>
+        <tr><td>Mappers</td><td>{% for m in item.mappers %}<code>{{ m.nome }}</code>{% if m.valor %} ({{ m.valor }} → {{ m.destino }}){% endif %}{% if not forloop.last %}, {% endif %}{% empty %}<span class="ct-note">nenhum: grupos e roles não vêm do Azure</span>{% endfor %}</td></tr>
+      </tbody>
+    </table>
+    <div class="ct-cadastro-campos" style="margin-top:12px">
+      {% for f in form.visible_fields %}<div class="ct-field"><label for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}{% if f.help_text %}<span class="ct-note">{{ f.help_text }}</span>{% endif %}{% for e in f.errors %}<span class="ct-neg ct-note">{{ e }}</span>{% endfor %}</div>{% endfor %}
+    </div>
+    <p class="ct-note">Com o ID do Aplicativo, o Keycloak baixa <code class="ct-quebra">https://login.microsoftonline.com/{{ item.tenant }}/federationmetadata/2007-06/federationmetadata.xml?appid=…</code>, guarda o certificado de assinatura do app e liga <em>Validate Signatures</em>. O resto da configuração do provedor e os mappers ficam como estão.</p>
+    {% with confirmar="Aplicar no provedor "|add:item.alias|add:" do realm "|add:item.realm|add:"? Faça antes o passo 1 da ordem no Azure." %}{% include "botoes_plano.html" %}{% endwith %}
+  </form>
+  {% endif %}
+</div>
+{% endblock main %}
+
+{% block extra_js %}
+<style>.ct-quebra { word-break: break-all; } tr.is-ativo td { background: var(--ct-destaque, rgba(17,116,59,.06)); }</style>
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
+  mermaid.initialize({ startOnLoad: true, theme: document.documentElement.classList.contains("dark") ? "dark" : "neutral", securityLevel: "strict" });
+</script>
+{% endblock extra_js %}

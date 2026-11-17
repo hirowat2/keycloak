@@ -11,8 +11,14 @@
     </div>
   </header>
   <div class="ct-alert">{{ erro }}</div>
+  {% if request.keycloak and not request.keycloak.ambiente %}
   <section class="ct-info">
-    Confira: o Keycloak está no ar (<code>make logs</code>)? <code>KEYCLOAK_INTERNAL_URL</code> aponta para ele? <code>KEYCLOAK_ADMIN_USER</code> e <code>KEYCLOAK_ADMIN_PASSWORD</code> são os do console (<code>KC_ADMIN_USER</code>/<code>KC_ADMIN_PASSWORD</code>)? Lembre que essa senha só vale no primeiro boot: se foi trocada no console, troque também no <code>.env</code>.
+    Este é o servidor <b>{{ request.keycloak.nome }}</b>, cadastrado em <a href="/app/servidores/">Servidores Keycloak</a>. Confira lá a URL (a raiz do Keycloak; alguns ainda usam <code>/auth</code>) e a credencial do realm master, use <b>Testar</b>, ou escolha outro Keycloak no menu lateral.
   </section>
+  {% else %}
+  <section class="ct-info">
+    Confira: o Keycloak está no ar (<code>make logs</code>)? <code>KEYCLOAK_INTERNAL_URL</code> aponta para ele? <code>KEYCLOAK_ADMIN_USER</code> e <code>KEYCLOAK_ADMIN_PASSWORD</code> são os do console (<code>KC_ADMIN_USER</code>/<code>KC_ADMIN_PASSWORD</code>)? Lembre que essa senha só vale no primeiro boot: se foi trocada no console, troque também no <code>.env</code>. Para trabalhar em outro Keycloak, cadastre-o em <a href="/app/servidores/">Servidores Keycloak</a>.
+  </section>
+  {% endif %}
 </div>
 {% endblock %}

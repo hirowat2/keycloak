@@ -48,6 +48,7 @@
         <li><strong>Users and groups</strong>: atribua só esses grupos (exige Entra ID P1/P2). Em <strong>Properties</strong>: <em>Assignment required?</em> = <code>Yes</code>.</li>
         <li><strong>SAML Certificates</strong>: copie a <strong>App Federation Metadata Url</strong> e cole abaixo.</li>
       </ol>
+      <p><a class="ct-btn ct-btn--pequeno ct-btn--primario" href="/app/entra/{% if alias %}?alias={{ alias }}{% endif %}"><i class="fa-brands fa-microsoft"></i> Guia completo do Azure AD</a> <span class="ct-note">passo a passo com figuras, claims, grupos deste realm, erros AADSTS e um texto pronto para o time do Azure.</span></p>
     </details>
     <details {% if tipo == "google" %}open{% endif %}>
       <summary><strong>Google Workspace</strong></summary>

@@ -17,6 +17,8 @@ SECOES = [
     {
         "titulo": "Manutenção",
         "itens": [
+            {"href": "/app/servidores/", "label": "Servidores Keycloak", "icon": "fa-solid fa-server", "required_groups": GRUPOS_CONSULTA},
+            {"href": "/app/azure/", "label": "Azure AD dos realms", "icon": "fa-brands fa-microsoft", "required_groups": GRUPOS_CONSULTA},
             {"href": "/app/migracao/", "label": "Migração da VM", "icon": "fa-solid fa-truck-arrow-right", "required_groups": GRUPOS_CONSULTA},
             {"href": "/app/banco/", "label": "Banco do Keycloak", "icon": "fa-solid fa-database", "required_groups": GRUPOS_CONSULTA},
             {"href": "/app/historico/", "label": "Histórico", "icon": "fa-solid fa-clock-rotate-left", "required_groups": GRUPOS_CONSULTA},
@@ -25,6 +27,7 @@ SECOES = [
     {
         "titulo": "Ajuda",
         "itens": [
+            {"href": "/app/entra/", "label": "Guia do Azure AD", "icon": "fa-brands fa-microsoft", "required_groups": GRUPOS_CONSULTA},
             {"href": "/app/manual/", "label": "Manual de uso", "icon": "fa-solid fa-life-ring", "required_groups": GRUPOS_CONSULTA},
             {"href": "/app/metodologia/", "label": "Metodologia", "icon": "fa-solid fa-book-open", "required_groups": GRUPOS_CONSULTA},
         ],

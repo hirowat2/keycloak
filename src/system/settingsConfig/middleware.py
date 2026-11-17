@@ -15,6 +15,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "system.sso.EmailPermitidoMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
+    "keycloak.automacao.web.KeycloakAtivoMiddleware",
     # "debug_toolbar.middleware.DebugToolbarMiddleware",
     "auditlog.middleware.AuditlogMiddleware",
     "silk.middleware.SilkyMiddleware",

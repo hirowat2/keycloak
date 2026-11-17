@@ -48,6 +48,9 @@ CASOS = [
              "os botões Copiar. Mande as duas para o time do SSO junto com o roteiro da própria tela.", "/app/sso/", "08-sso-urls.png"),
             ("O time do SSO cria a aplicação SAML, inclui o claim de grupos, atribui os grupos e devolve a "
              "<b>URL de metadata</b>. O roteiro de cada portal está na tela.", "/app/sso/", "09-sso-roteiro.png"),
+            ("Se o cliente usa <b>Azure AD (Microsoft Entra ID)</b>, abra o <b>Guia do Azure AD</b> (menu Ajuda ou o botão na "
+             "tela 3): tem o passo a passo do portal com figuras, os grupos deste realm e um <b>texto pronto para o time do "
+             "Azure</b> (1), com o botão Copiar (2).", "/app/entra/", "29-entra-email.png"),
             ("Volte à tela 3, escolha o tipo de SSO, cole a URL de metadata e aplique. Marque <b>login direto</b> se o "
              "cliente só entra pelo SSO (pula a tela de usuário e senha do Keycloak).", "/app/sso/", "10-sso-formulario.png"),
             ("Na tela 4, para cada grupo do Keycloak, informe o valor que chega na asserção (nome do grupo no SSO, ou o "
@@ -267,6 +270,49 @@ CASOS = [
         "resultado": "Um .dump que volta o Keycloak para este momento pelo caso 6.",
         "erros": [("Não faça commit", "*.dump está no .gitignore: deixe assim.")],
     },
+    {
+        "id": "outro-keycloak",
+        "titulo": "Trabalhar em outro Keycloak (cadastrar um servidor)",
+        "quando": "O assistente precisa administrar um Keycloak além do dele, ex.: a produção em https://keycloak.actionstat.app.",
+        "quem": "Admin cadastra; qualquer um escolhe o servidor no menu",
+        "tempo": "5 min",
+        "pre": [
+            "A URL pública do Keycloak: a raiz, a que tem /realms/master (ex.: https://keycloak.actionstat.app)",
+            "Um admin do realm master desse Keycloak, ou um client confidential com service account e a role admin do master",
+            "O assistente precisa alcançar essa URL (rede e firewall)",
+        ],
+        "diagrama": """flowchart LR
+    A["Servidores Keycloak<br/>URL + admin do master"] --> B{"Testar"}
+    B -- ok --> C["Testar e salvar<br/>(vira o ativo)"]
+    B -- erro --> D["ajuste o que a<br/>mensagem indicar"] --> B
+    C --> E["menu lateral<br/>Keycloak: Produção"]
+    E --> F["Painel e etapas<br/>nesse Keycloak"]""",
+        "passos": [
+            ("Abra <b>Manutenção → Servidores Keycloak</b>. Preencha o nome (como aparece no menu), a <b>URL pública</b> (1) e, "
+             "só se o assistente alcançar o Keycloak por outro endereço, a <b>URL interna</b> (2). Escolha a autenticação (3) e "
+             "informe o admin do master e a senha. Clique em <b>Testar</b>: a caixa (4) mostra a versão e os realms. Depois, "
+             "<b>Testar e salvar</b> (5).", "/app/servidores/", "26-servidores-cadastro.png"),
+            ("O servidor novo vira o ativo da sua sessão (1). Para trocar em qualquer tela, use o seletor <b>Keycloak</b> do "
+             "menu lateral (2): o seletor de realm passa a listar os realms dele.", "/app/servidores/", "27-servidores-lista.png"),
+            ("Abra o <b>Painel</b> e confira o Keycloak conectado e a versão. A partir daqui, os casos 1 a 4 funcionam nesse "
+             "servidor. O Histórico registra em qual servidor cada mudança foi feita.", "/app/painel/", None),
+        ],
+        "exemplo": [
+            ("Nome", "Produção actionstat"),
+            ("URL pública", "https://keycloak.actionstat.app"),
+            ("URL interna", "(em branco)"),
+            ("Autenticação", "Usuário e senha do admin do master"),
+            ("Usuário", "admin"),
+        ],
+        "resultado": "O menu mostra Keycloak: Produção actionstat, e o Painel lista os realms desse servidor.",
+        "erros": [
+            ("invalid_grant / Invalid user credentials", "Usuário ou senha do admin do master errados. A senha que vale é a do console desse Keycloak."),
+            ("→ 404 no token", "A URL não é a raiz. Keycloaks antigos (até o 16, ou com KC_HTTP_RELATIVE_PATH) usam /auth: a mensagem sugere a URL certa."),
+            ("unauthorized_client", "Service account: o client precisa ser confidential, com Service accounts enabled e a role admin do master."),
+            ("CERTIFICATE_VERIFY_FAILED", "Certificado inválido. Corrija-o; desmarcar Verificar o certificado é só para teste."),
+            ("Sem conexão / timeout", "O assistente não alcança a URL: rede, DNS ou firewall."),
+        ],
+    },
 ]
 
 # Telas: para que serve e quem pode mexer
@@ -277,6 +323,9 @@ TELAS = [
     ("/app/sso/", "3 · SSO corporativo", "URLs para o time do SSO e o provedor SAML", "Admin aplica"),
     ("/app/mapeamento/", "4 · Grupos do SSO", "Grupo do SSO → grupo do Keycloak", "Admin aplica"),
     ("/app/conferir/", "5 · Conferir", "Checklist, usuário, .env dos apps e JSON versionável", "todos"),
+    ("/app/entra/", "Guia do Azure AD", "Passo a passo do Entra ID com os valores do realm, erros AADSTS e texto para o time do Azure", "todos"),
+    ("/app/azure/", "Azure AD dos realms", "Provedores Azure já existentes: o que o app do Azure precisa ter, comparação e ajuste do Entity ID e da assinatura", "Admin aplica"),
+    ("/app/servidores/", "Servidores Keycloak", "Cadastra os Keycloaks administrados e escolhe em qual trabalhar", "Admin cadastra"),
     ("/app/migracao/", "Migração da VM", "Comandos da migração (compose, k8s, Akamai), host novo e usuários incompletos", "Admin aplica"),
     ("/app/banco/", "Banco do Keycloak", "Conexão, restaurar dump, conexões, senha de admin e gerar dump", "Admin muda"),
     ("/app/historico/", "Histórico", "Cada simulação e aplicação, com o plano", "todos"),
@@ -284,7 +333,7 @@ TELAS = [
 
 PROBLEMAS = [
     ("A tela diz que o Keycloak não respondeu", "Admin API fora do ar ou credencial errada",
-     "Veja se o Keycloak subiu. Depois de restaurar um dump, o admin do assistente (KEYCLOAK_ADMIN_USER/PASSWORD) pode não existir mais: use o caso 7."),
+     "Veja qual Keycloak está no seletor do menu e use Testar em Servidores Keycloak (caso 9). Veja se o Keycloak subiu. Depois de restaurar um dump, o admin do assistente (KEYCLOAK_ADMIN_USER/PASSWORD) pode não existir mais: use o caso 7."),
     ("Botão Aplicar não aparece", "Você entrou sem a role ADMIN", "Peça a role ADMIN no realm do login do assistente."),
     ("Simulação mostra mudanças que você não pediu", "O Keycloak foi alterado pelo console", "Confira o plano: aplicar volta ao que o formulário diz."),
     ("Falhou no meio do Aplicar", "Erro do Keycloak num dos passos", "O que já foi feito fica. Corrija e aplique de novo: continua de onde parou."),
@@ -297,6 +346,8 @@ PROBLEMAS = [
 ]
 
 GLOSSARIO = [
+    ("Azure AD / Entra ID", "O diretório da Microsoft (o nome novo do Azure AD). Aqui ele é o SSO: Enterprise application SAML, guia em Ajuda → Guia do Azure AD."),
+    ("Servidor", "Um Keycloak que o assistente administra: o do ambiente ou um cadastrado em Servidores Keycloak. O ativo aparece no menu lateral."),
     ("Realm", "Um espaço isolado do Keycloak, com seus usuários, apps e SSO. Um por cliente."),
     ("Client", "Um app cadastrado no realm. Aqui: público, OIDC, com PKCE S256."),
     ("Role", "Uma permissão que vai no token. Cada app tem uma role com o nome do client; ADMIN vira superuser."),
