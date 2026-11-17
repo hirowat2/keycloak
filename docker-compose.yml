@@ -37,6 +37,15 @@ services:
       # Admin API: o admin do realm master, o mesmo do console
       - KEYCLOAK_ADMIN_USER=${KC_ADMIN_USER:-admin}
       - KEYCLOAK_ADMIN_PASSWORD=${KC_ADMIN_PASSWORD:-admin}
+      # Tela "Banco do Keycloak": o mesmo banco do Keycloak (o usuário precisa criar/renomear bancos).
+      # Os valores aqui são o padrão da tela; dá para trocar a conexão por ela mesma.
+      - KEYCLOAK_DB_HOST=${KC_DB_HOST:-keycloak-db}
+      - KEYCLOAK_DB_PORT=${KC_DB_PORT:-5432}
+      - KEYCLOAK_DB_NAME=${KC_DB_NAME:-keycloak}
+      - KEYCLOAK_DB_USER=${KC_DB_USER:-keycloak}
+      - KEYCLOAK_DB_PASSWORD=${KC_DB_PASSWORD:-keycloak}
+      - KEYCLOAK_DB_ADMIN_DB=${KC_DB_ADMIN_DB:-postgres}
+      - KEYCLOAK_DB_SSLMODE=${KC_DB_SSLMODE:-prefer}
     labels:
       - traefik.enable=true
       - traefik.docker.network=proxy
@@ -77,7 +86,8 @@ services:
 
   keycloak:
     hostname: keycloak
-    image: quay.io/keycloak/keycloak:26.8.1
+    # Mesma versão da produção (k8s/keycloak-deploy.yaml) e do keycloak.dump: o Keycloak não volta versão
+    image: quay.io/keycloak/keycloak:${KC_VERSION:-21.1}
     # --import-realm só cria os realms de ./realm que ainda não existem no banco
     command: start --import-realm
     restart: on-failure
@@ -85,25 +95,28 @@ services:
       - path: .env
         required: false
     environment:
-      # Admin do realm master (só é criado no primeiro boot, com o banco vazio)
-      - KC_BOOTSTRAP_ADMIN_USERNAME=${KC_ADMIN_USER:-admin}
-      - KC_BOOTSTRAP_ADMIN_PASSWORD=${KC_ADMIN_PASSWORD:-admin}
-      # Banco
+      # Admin do realm master (Keycloak 21: KEYCLOAK_ADMIN). Só é criado com o master vazio.
+      - KEYCLOAK_ADMIN=${KC_ADMIN_USER:-admin}
+      - KEYCLOAK_ADMIN_PASSWORD=${KC_ADMIN_PASSWORD:-admin}
+      # Banco: por padrão o keycloak-db daqui. Para usar outro (ex.: Akamai), mude KC_DB_* no .env.
       - KC_DB=postgres
-      - KC_DB_URL=jdbc:postgresql://keycloak-db:5432/${KC_DB_NAME:-keycloak}
+      - KC_DB_URL_HOST=${KC_DB_HOST:-keycloak-db}
+      - KC_DB_URL_PORT=${KC_DB_PORT:-5432}
+      - KC_DB_URL_DATABASE=${KC_DB_NAME:-keycloak}
+      - KC_DB_URL_PROPERTIES=?sslmode=${KC_DB_SSLMODE:-prefer}
       - KC_DB_USERNAME=${KC_DB_USER:-keycloak}
       - KC_DB_PASSWORD=${KC_DB_PASSWORD:-keycloak}
       # Atrás do Traefik: TLS termina no proxy, o Keycloak fala HTTP na 8080.
+      # Keycloak 21: KC_HOSTNAME é só o host (sem https://) e KC_PROXY=edge lê os X-Forwarded-*.
       # O back-channel (http://keycloak:8080) continua funcionando para os apps da rede proxy.
-      - KC_HOSTNAME=https://${KC_HOST:-keycloak.docker.localhost}
-      - KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true
+      - KC_HOSTNAME=${KC_HOST:-keycloak.docker.localhost}
+      - KC_HOSTNAME_STRICT_BACKCHANNEL=false
       - KC_HTTP_ENABLED=true
-      - KC_PROXY_HEADERS=xforwarded
+      - KC_PROXY=edge
       - KC_HEALTH_ENABLED=true
       - KC_METRICS_ENABLED=true
       - KC_LOG_LEVEL=${KC_LOG_LEVEL:-info}
-      # Um nó só: sem cluster. Senão, a cada container novo (ou dump restaurado) o Keycloak gasta ~20 s
-      # tentando entrar no "cluster" do nó antigo registrado no banco (JDBC_PING) antes de subir.
+      # Um nó só: sem cluster (senão cada container novo perde tempo procurando os nós antigos)
       - KC_CACHE=local
       # Usados como placeholders em realm/*.json
       - KC_REALM=${KC_REALM:-automateflow}
@@ -114,12 +127,12 @@ services:
       - MONGO_MIGRATOR_URL=${MONGO_MIGRATOR_URL:-https://mongo-migrator.docker.localhost}
     volumes:
       - ./realm:/opt/keycloak/data/import:ro
-    # Health fica na porta de gerenciamento (9000); a imagem não tem curl
+    # Keycloak 21: health na própria 8080; a imagem não tem curl
     healthcheck:
       test:
         - CMD-SHELL
         - >-
-          exec 3<>/dev/tcp/localhost/9000 &&
+          exec 3<>/dev/tcp/localhost/8080 &&
           printf 'GET /health/ready HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3 &&
           grep -q '"UP"' <&3
       interval: 15s

@@ -47,9 +47,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH="/usr/src/.venv/bin:${PATH}" \
     PYTHONPATH="/usr/src/src"
 
-# Só o necessário em execução: cliente MariaDB (mysqlclient, exigido pelo pseudoproject).
+# Só o necessário em execução: cliente MariaDB (mysqlclient, exigido pelo pseudoproject)
+# e o pg_restore da tela "Restaurar dump" (postgresql-client).
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libmariadb3 \
+        postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src

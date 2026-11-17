@@ -74,9 +74,39 @@ def test_metodologia_tem_uma_secao_por_etapa(entrar) -> None:
     from keycloak.screens.metodologia.view import ETAPAS
 
     html = entrar("Limited").get("/app/metodologia/").content.decode()
-    for etapa in ["realm", "grupos", "sso", "mapeamento", "conferir", "migracao"]:
+    for etapa in ["realm", "grupos", "sso", "mapeamento", "conferir", "migracao", "banco"]:
         assert f'id="{etapa}"' in html and f'href="#{etapa}"' in html
     # Diagramas com "{{" seriam lidos como variável do Django e quebrariam o Mermaid
     assert all("{{" not in e["diagrama"] for e in ETAPAS) and 'T(["Teste de login' in html
     # Todo print citado existe em media/metodologia (make prints)
     assert html.count('class="ct-card mt-passo"') == sum(len(e["passos"]) for e in ETAPAS)
+
+
+def test_manual_tem_um_caso_por_tarefa(entrar) -> None:
+    from keycloak.screens.manual.view import CASOS
+
+    html = entrar("Limited").get("/app/manual/").content.decode()
+    for caso in CASOS:
+        assert f'id="{caso["id"]}"' in html and f'href="#{caso["id"]}"' in html
+        assert "{{" not in caso["diagrama"]
+    assert 'id="problemas"' in html and 'id="glossario"' in html
+
+
+def test_prints_e_telas_citados_existem() -> None:
+    """Todo print citado na Metodologia e no Manual existe, e todo "Abrir a tela" leva a uma tela de verdade."""
+    import os
+
+    from django.conf import settings
+
+    from keycloak.screens.manual.view import CASOS, TELAS as TELAS_MANUAL
+    from keycloak.screens.metodologia.view import ETAPAS
+
+    pasta = os.path.join(settings.MEDIA_ROOT, "metodologia")
+    prints = {arquivo for e in ETAPAS for arquivo, _, _ in e["passos"]}
+    prints |= {imagem for c in CASOS for _, _, imagem in c["passos"] if imagem}
+    assert sorted(p for p in prints if not os.path.exists(os.path.join(pasta, p))) == []
+
+    telas = os.path.join(settings.BASE_DIR.parent, "src", "keycloak", "screens")
+    links = {tela for c in CASOS for _, tela, _ in c["passos"] if tela} | {url for url, *_ in TELAS_MANUAL} | {e["tela"] for e in ETAPAS}
+    nomes = {link.split("/")[2] for link in links}
+    assert sorted(n for n in nomes if not os.path.isfile(os.path.join(telas, n, "view.py"))) == []

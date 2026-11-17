@@ -7,7 +7,7 @@
     <div>
       <p class="ct-eyebrow">Manutenção</p>
       <h1 class="ct-title">Migrar o Keycloak de uma VM</h1>
-      <p class="ct-subtitle">Traz todos os realms de um Keycloak em container numa VM. A versão da VM precisa ser igual ou mais antiga que a daqui (26.8.1). Detalhes e figuras no README_migracao_vm.md.</p>
+      <p class="ct-subtitle">Traz todos os realms de um Keycloak em container numa VM. A versão da VM precisa ser igual ou mais antiga que a daqui (veja em Manutenção → Banco do Keycloak). Detalhes e figuras no README_migracao_vm.md.</p>
     </div>
   </header>
 
@@ -35,7 +35,13 @@
     </section>
     <section class="ct-card">
       <h2>2B · Saiu <code>keycloak.dump</code></h2>
-      <p class="ct-note"><strong class="ct-neg">Apaga o banco do Keycloak daqui</strong> (o alvo pede confirmação) e traz tudo da VM, inclusive o <code>master</code>: o admin do console passa a ser o da VM.</p>
+      {% if destino == "akamai" %}
+        <p class="ct-note">Traz tudo da VM, inclusive o <code>master</code> (o admin do console passa a ser o da VM), para o cluster de banco da Akamai. O <code>scripts/akamai_db.sh</code> segue o k8s/sql_db.md: restaura em <code>keycloak_new</code> com o Keycloak no ar, confere, recusa dump de versão mais nova, pede confirmação, põe o deploy em 0 réplicas, guarda o banco atual como <code>keycloak_antes_&lt;data&gt;</code> e sobe de novo. <strong>Nada é apagado.</strong></p>
+        <p class="ct-note">Use o host <strong>primário</strong> do cluster (não o read-only) e libere o IP da sua máquina em <em>Manage Access</em>. A senha do <code>akmadmin</code> é pedida no terminal.{% if not akamai %} <span class="ct-neg">Preencha o host acima.</span>{% endif %}</p>
+        <p class="ct-note">Sem terminal: envie o <code>keycloak.dump</code> em <a href="/app/banco/">Banco do Keycloak</a>, que faz o mesmo pelo navegador (o assistente precisa de <code>KEYCLOAK_DB_*</code> apontando para a Akamai).</p>
+      {% else %}
+        <p class="ct-note"><strong class="ct-neg">Apaga o banco do Keycloak daqui</strong> (o alvo pede confirmação) e traz tudo da VM, inclusive o <code>master</code>: o admin do console passa a ser o da VM. Alternativa que guarda o banco atual: <a href="/app/banco/">Banco do Keycloak</a>.</p>
+      {% endif %}
       <div class="ct-card-head ct-card-head--solto"><span></span><button type="button" class="ct-btn ct-btn--pequeno" data-copiar="cmd-b"><i class="fa-regular fa-copy"></i> Copiar</button></div>
       <pre class="ct-codigo" id="cmd-b" style="white-space:pre-wrap">{{ comandos.b|join:"
 " }}</pre>

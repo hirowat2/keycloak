@@ -333,6 +333,37 @@ O log do pod mostra as mesmas linhas da figura do B.2 (itens 3 a 5).
 
 Depois do B, o console é acessado com o **admin da VM**. O `realm/automateflow-realm.json` daqui ainda é importado no boot, se esse realm não estiver no dump.
 
+### B.4 Restaurar no Kubernetes com o banco na Akamai (produção)
+
+Em produção, o Keycloak roda no Kubernetes (LKE) e o banco fica num **Akamai Managed PostgreSQL**, um cluster de banco fora do Kubernetes. Não há `keycloak-db-0` para usar com `kubectl exec`: o restore vai direto da sua máquina para o cluster de banco, com `psql`/`pg_restore`.
+
+Antes:
+- Pegue o **host primário** em Cloud Manager → Databases → Connection Details. O host read-only (standby) recusa `CREATE`/`ALTER DATABASE`, e o script avisa se você usar ele.
+- Libere o IP da sua máquina em **Manage Access**.
+- Confira se a imagem do deploy aceita o dump. O Keycloak não volta versão: um dump do 21.1.2 sobe no `quay.io/keycloak/keycloak:21.1`, mas um do 26 não.
+
+```bash
+scp usuario@vm-antiga:keycloak.dump .
+make akamai-testar          AKAMAI_DB_HOST=<host-primario> K8S_NS=<namespace>   # conexão, bancos e se é o primário
+make akamai-restaurar-dump  AKAMAI_DB_HOST=<host-primario> K8S_NS=<namespace>
+```
+
+O `scripts/akamai_db.sh restaurar` segue o [k8s/sql_db.md](k8s/sql_db.md) e **não apaga nada**:
+
+```mermaid
+flowchart LR
+    A["keycloak_new<br/>(Keycloak no ar)"] --> B["pg_restore<br/>--no-owner --no-privileges"] --> C{"erros? versão<br/>mais nova?"}
+    C -- sim --> X["para<br/>(keycloak intacto)"]
+    C -- não --> D["confirmação<br/>+ scale 0"] --> E["keycloak → keycloak_antes_AAAAMMDD_HHMMSS<br/>(sem conexões)"] --> F["keycloak_new → keycloak"] --> G["scale de volta<br/>+ rollout status"]
+```
+
+- Se, com o deploy em 0, ainda houver conexões no banco (outro Keycloak apontando para o mesmo cluster), o script mostra quem são e pede outra confirmação antes de derrubá-las.
+- Para voltar ao banco anterior: pare o Keycloak e renomeie `keycloak_antes_<data>` para `keycloak` (`ALLOW_CONNECTIONS true`).
+- Outros alvos: `make akamai-conexoes`, `make akamai-psql` e `make akamai-dump`.
+- Sem terminal: a tela **Banco do Keycloak** do assistente faz o mesmo com upload do arquivo. Para isso, o assistente precisa de `KEYCLOAK_DB_*` apontando para a Akamai.
+
+A tela **Migração da VM**, com o destino *Kubernetes + Akamai*, monta esses comandos com o seu host e namespace. Quando o assistente roda no cluster, ela já vem preenchida.
+
 ---
 
 ## 2. Depois de migrar

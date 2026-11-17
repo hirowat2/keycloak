@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+{% block title %}Banco do Keycloak | Assistente Keycloak{% endblock %}
+
+{% block main %}
+<div class="ct-page">
+  <header class="ct-header">
+    <div>
+      <p class="ct-eyebrow">Manutenção</p>
+      <h1 class="ct-title">Banco do Keycloak</h1>
+      <p class="ct-subtitle">Tudo do k8s/sql_db.md sem terminal: conectar no PostgreSQL, restaurar um dump sem apagar nada antes da hora, ver quem está conectado, trocar a senha de um admin e gerar um dump novo. Funciona mesmo com o Keycloak fora do ar.</p>
+    </div>
+  </header>
+
+  <nav class="ct-card ct-actions" style="flex-wrap:wrap">
+    <a class="ct-btn ct-btn--pequeno" href="#conexao">1 · Conexão</a>
+    <a class="ct-btn ct-btn--pequeno" href="#restaurar">2 · Restaurar dump</a>
+    <a class="ct-btn ct-btn--pequeno" href="#conexoes">3 · Quem está conectado</a>
+    <a class="ct-btn ct-btn--pequeno" href="#senha">4 · Senha de admin</a>
+    <a class="ct-btn ct-btn--pequeno" href="#dump">5 · Gerar dump</a>
+  </nav>
+
+  {% if not pode_editar %}<div class="ct-info">Só administradores (role ADMIN) mudam alguma coisa aqui. Você pode ver o estado dos bancos.</div>{% endif %}
+
+  {# ---------------------------------------------------------------- 1. Conexão #}
+  <section class="ct-card" id="conexao">
+    <div class="ct-card-head ct-card-head--solto">
+      <h2>1 · Conexão com o PostgreSQL</h2>
+      {% if banco and not erro %}<span class="ct-badge ct-badge--ok">conectado{% if servidor %} · PostgreSQL {{ servidor.versao }}{% endif %}</span>
+      {% elif banco %}<span class="ct-badge ct-badge--alerta">sem conexão</span>
+      {% else %}<span class="ct-badge ct-badge--alerta">não configurada</span>{% endif %}
+    </div>
+    {% if banco %}
+      <p class="ct-note">Usando <code>{{ banco.descricao }}</code> (banco administrativo <code>{{ banco.administrativo }}</code>, SSL <code>{{ banco.sslmode }}</code>) ·
+        {% if conexao_da_tela %}escolhida nesta tela, vale só para a sua sessão{% else %}do ambiente (<code>KEYCLOAK_DB_*</code>){% endif %}.</p>
+    {% endif %}
+    {% if erro %}<div class="ct-alert"><strong>O banco não respondeu.</strong> {{ erro }}<br><span class="ct-note">No Akamai, confira se o IP (dos nodes ou desta máquina) está em Manage Access.</span></div>{% endif %}
+
+    <details id="outro-banco" {% if not banco or erro or conexao_form.errors %}open{% endif %} style="margin-top:8px">
+      <summary>Usar outro banco</summary>
+      <form method="post" class="ct-cadastro" style="margin-top:8px">
+        {% csrf_token %}
+        <div class="ct-cadastro-campos">
+          {% for f in conexao_form %}<div class="ct-field"><label for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}{% if f.help_text %}<span class="ct-note">{{ f.help_text }}</span>{% endif %}{% for e in f.errors %}<span class="ct-neg ct-note">{{ e }}</span>{% endfor %}</div>{% endfor %}
+        </div>
+        <p class="ct-note">Akamai Managed PostgreSQL: host e senha em Cloud Manager → Databases → Connection Details; porta 23159, usuário <code>akmadmin</code>, administrativo <code>defaultdb</code>, SSL <code>require</code>. A senha fica cifrada na sua sessão.</p>
+        {% if pode_editar %}
+        <div class="ct-actions" style="margin-top:12px">
+          <button class="ct-btn ct-btn--primario" name="acao" value="conectar"><i class="fa-solid fa-plug"></i> Testar e usar</button>
+          {% if conexao_da_tela %}<button class="ct-btn" name="acao" value="padrao" formnovalidate><i class="fa-solid fa-rotate-left"></i> Voltar para a do ambiente</button>{% endif %}
+        </div>
+        {% endif %}
+      </form>
+    </details>
+
+    {% if servidor %}
+      <div class="ct-table-wrap" style="margin-top:12px">
+        <table class="ct-table ct-table--compacta">
+          <thead><tr><th>Bancos no servidor</th><th>Tamanho</th><th>Situação</th></tr></thead>
+          <tbody>
+            {% for b in servidor.bancos %}
+              <tr><td class="ct-codigo">{{ b.nome }}</td><td>{{ b.tamanho }}</td>
+                <td>{% if b.nome == banco.nome %}<span class="ct-badge ct-badge--ok">em uso pelo Keycloak</span>{% elif b.nome == banco.temporario %}<span class="ct-badge">temporário</span>{% elif not b.aceita %}<span class="ct-badge">cópia (sem conexões)</span>{% endif %}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </section>
+
+  {% if banco and not erro %}
+
+  {# ---------------------------------------------------------------- 2. Restaurar #}
+  <div class="ct-grid ct-grid--2" id="restaurar">
+    <section class="ct-card">
+      <h2>2 · Banco em uso</h2>
+      {% if atual %}
+        <p>Keycloak <strong>{{ atual.versao|default:"?" }}</strong> · {{ atual.realms|length }} realm{{ atual.realms|length|pluralize }} · {{ atual.usuarios }} usuário{{ atual.usuarios|pluralize }}</p>
+        <p class="ct-note">{{ atual.realms|join:", " }}</p>
+      {% else %}
+        <p class="ct-note">O banco <code>{{ banco.nome }}</code> não existe (ou ainda não tem as tabelas do Keycloak).</p>
+      {% endif %}
+      <p class="ct-note">Nunca restaure direto nele: um Keycloak conectado num banco vazio cria as tabelas na hora e o <code>pg_restore</code> falha com <code>already exists</code>. Por isso a restauração vai para <code>{{ banco.temporario }}</code>.</p>
+    </section>
+
+    <form method="post" enctype="multipart/form-data" class="ct-card" data-restaurar>
+      <h2>2.1 · Enviar o dump</h2>
+      <p class="ct-note">Recria <code>{{ banco.temporario }}</code> e restaura nele com <code>--no-owner --no-privileges</code>. O Keycloak continua no banco atual. Pode levar alguns minutos: não feche a página.</p>
+      {% csrf_token %}
+      {% with f=envio_form.arquivo %}
+        <div class="ct-field"><label for="{{ f.id_for_label }}">{{ f.label }}</label><input type="file" name="{{ f.html_name }}" id="{{ f.id_for_label }}" accept=".dump,.backup,.pgdump,application/octet-stream" required {% if not pode_editar %}disabled{% endif %}>
+          <span class="ct-note">{{ f.help_text }}</span>{% for e in f.errors %}<span class="ct-neg ct-note">{{ e }}</span>{% endfor %}</div>
+      {% endwith %}
+      <div class="ct-actions" style="margin-top:12px">
+        <button class="ct-btn ct-btn--primario" name="acao" value="enviar" {% if not pode_editar %}disabled{% endif %}><i class="fa-solid fa-upload"></i> Enviar e restaurar no temporário</button>
+      </div>
+    </form>
+  </div>
+
+  {% if novo %}
+    <section class="ct-card" id="conferencia">
+      <div class="ct-card-head ct-card-head--solto">
+        <h2>2.2 · Conferir <code>{{ banco.temporario }}</code></h2>
+        {% if bloqueios %}<span class="ct-badge ct-badge--alerta">não pode trocar</span>{% else %}<span class="ct-badge ct-badge--ok">pronto para trocar</span>{% endif %}
+      </div>
+      {% if envio %}
+        <p class="ct-note">Arquivo <code>{{ envio.nome }}</code> ({{ envio.tamanho }}){% if envio.origem %} · banco de origem <code>{{ envio.origem }}</code>{% endif %}{% if envio.criado %} · gerado em {{ envio.criado }}{% endif %}{% if envio.servidor %} · PostgreSQL {{ envio.servidor }}{% endif %}</p>
+      {% endif %}
+      <div class="ct-table-wrap">
+        <table class="ct-table ct-table--compacta">
+          <tbody>
+            <tr><th>migration_model</th><td>{% for id, versao in novo.migracoes %}<code>{{ id }} | {{ versao }}</code>{% if not forloop.last %}, {% endif %}{% empty %}<span class="ct-neg">vazia</span>{% endfor %}
+              {% if novo.migracoes|length == 1 %}<span class="ct-pos ct-note">· uma linha, como esperado</span>{% endif %}</td></tr>
+            <tr><th>Realms ({{ novo.realms|length }})</th><td>{{ novo.realms|join:", " }}</td></tr>
+            <tr><th>Usuários</th><td>{{ novo.usuarios }}</td></tr>
+            <tr><th>Admins do console (master)</th><td>{{ novo.admins_master|join:", "|default:"—" }}</td></tr>
+          </tbody>
+        </table>
+      </div>
+      {% if envio.erros %}
+        <div class="ct-alert" style="margin-top:12px"><strong>Erros do pg_restore</strong> (o de <code>transaction_timeout</code> já foi ignorado):
+          <pre class="ct-codigo" style="white-space:pre-wrap;max-height:240px;overflow:auto">{{ envio.erros|join:"
+" }}</pre></div>
+      {% endif %}
+      {% for b in bloqueios %}<div class="ct-alert" style="margin-top:8px">{{ b }}</div>{% endfor %}
+      {% for a in avisos %}<div class="ct-info" style="margin-top:8px">⚠️ {{ a }}</div>{% endfor %}
+    </section>
+
+    {% if pode_editar %}
+    <div class="ct-grid ct-grid--2">
+      <form method="post" class="ct-card" id="troca">
+        {% csrf_token %}
+        <h2>2.3 · Trocar os bancos</h2>
+        <p class="ct-note"><code>{{ banco.nome }}</code> vira <code>{{ banco.nome }}_antes_&lt;data&gt;</code> (bloqueado para conexões) e <code>{{ banco.temporario }}</code> passa a se chamar <code>{{ banco.nome }}</code>. As conexões do Keycloak caem por alguns segundos e ele {% if pode_reiniciar %}é reiniciado automaticamente{% else %}precisa ser reiniciado: <code>{{ comando_reiniciar }}</code>{% endif %}.</p>
+        {% with f=troca_form.confirmacao %}
+          <div class="ct-field"><label for="{{ f.id_for_label }}">{{ f.label }} (<code>{{ banco.nome }}</code>)</label>{{ f }}{% for e in f.errors %}<span class="ct-neg ct-note">{{ e }}</span>{% endfor %}</div>
+        {% endwith %}
+        <div class="ct-actions" style="margin-top:12px">
+          <button class="ct-btn ct-btn--primario" name="acao" value="trocar" {% if bloqueios %}disabled{% endif %}><i class="fa-solid fa-right-left"></i> Trocar{% if pode_reiniciar %} e reiniciar o Keycloak{% endif %}</button>
+        </div>
+      </form>
+      <form method="post" class="ct-card">
+        {% csrf_token %}
+        <h2>Desistir</h2>
+        <p class="ct-note">Apaga <code>{{ banco.temporario }}</code>. O banco em uso não é tocado.</p>
+        <div class="ct-actions" style="margin-top:12px">
+          <button class="ct-btn ct-btn--perigo" name="acao" value="descartar" data-confirmar-acao="Apagar {{ banco.temporario }}?"><i class="fa-solid fa-trash"></i> Apagar o temporário</button>
+        </div>
+      </form>
+    </div>
+    {% endif %}
+  {% endif %}
+
+  <section class="ct-card" id="depois">
+    <h2>2.4 · Depois da troca</h2>
+    <ol class="ct-note" style="padding-left:18px;margin:0">
+      <li>Espere o Keycloak voltar (1 a 2 minutos): o banco em uso acima deve mostrar os realms do dump e o <code>migration_model</code> igual ao conferido.</li>
+      <li>No log, <code>Failed to add user 'admin' … user with username exists</code> é normal: o admin vem do dump, com a senha do ambiente antigo. Para trocar, use a seção 4.</li>
+      <li>Se o dump veio de outro host, ajuste a <em>Frontend URL</em> e os redirect URIs na <a href="/app/migracao/">Migração da VM</a> (passo 3).</li>
+    </ol>
+    {% if copias %}
+      <p class="ct-note" style="margin-top:12px"><strong>Cópias de segurança</strong> ({{ copias|join:", " }}). Para voltar à mais recente ou apagá-la, no <code>psql</code> conectado em <code>{{ banco.administrativo }}</code>:</p>
+      <pre class="ct-codigo" style="white-space:pre-wrap">-- voltar (pare o Keycloak antes)
+ALTER DATABASE {{ banco.nome }} RENAME TO {{ banco.nome }}_descartado;
+ALTER DATABASE {{ copias.0 }} RENAME TO {{ banco.nome }};
+ALTER DATABASE {{ banco.nome }} ALLOW_CONNECTIONS true;
+
+-- apagar
+DROP DATABASE {{ copias.0 }};</pre>
+    {% endif %}
+  </section>
+
+  {# ---------------------------------------------------------------- 3. Conexões #}
+  <section class="ct-card ct-card--flush" id="conexoes">
+    <div class="ct-card-head">
+      <h2>3 · Quem está conectado em <code>{{ banco.nome }}</code> e <code>{{ banco.temporario }}</code></h2>
+      <a class="ct-btn ct-btn--pequeno" href="?#conexoes"><i class="fa-solid fa-rotate"></i> Atualizar</a>
+    </div>
+    <div class="ct-table-wrap">
+      <table class="ct-table ct-table--compacta">
+        <thead><tr><th>Banco</th><th>Origem</th><th>Aplicação</th><th>Usuário</th><th>Estado</th><th>Desde</th></tr></thead>
+        <tbody>
+          {% for c in conexoes %}
+            <tr><td class="ct-codigo">{{ c.banco }}</td><td class="ct-codigo">{{ c.origem|default:"local" }}</td><td>{{ c.aplicacao|default:"—" }}</td><td>{{ c.usuario }}</td><td>{{ c.estado|default:"—" }}</td><td class="ct-nowrap">{{ c.desde|date:"d/m/Y H:i:s" }}</td></tr>
+          {% empty %}
+            <tr><td colspan="6" class="ct-empty">Ninguém conectado. Com o Keycloak no ar, era para aparecer ele aqui.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="ct-note" style="padding:0 16px 12px">Conexão no temporário antes da troca = outro Keycloak apontando para ele (era a causa do <code>already exists</code> e do <code>migration_model</code> com 2 linhas).</p>
+  </section>
+
+  {# ---------------------------------------------------------------- 4. Senha #}
+  <div class="ct-grid ct-grid--2">
+    <form method="post" class="ct-card" id="senha">
+      {% csrf_token %}
+      <h2>4 · Trocar a senha de um admin</h2>
+      <p class="ct-note">Grava um hash novo direto no banco (pbkdf2-sha256, 27500 iterações), sem precisar saber nenhuma senha. Os admins do console são os usuários do realm <strong>master</strong>. {% if pode_reiniciar %}O Keycloak é reiniciado em seguida, para a senha antiga sair do cache.{% else %}Depois, reinicie o Keycloak: <code>{{ comando_reiniciar }}</code>.{% endif %}</p>
+      {% if atual and senha_form %}
+        <div class="ct-cadastro-campos">
+          {% for f in senha_form %}<div class="ct-field"><label for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}{% for e in f.errors %}<span class="ct-neg ct-note">{{ e }}</span>{% endfor %}</div>{% endfor %}
+        </div>
+        {% if pode_editar %}
+          <div class="ct-actions" style="margin-top:12px">
+            <button class="ct-btn ct-btn--primario" name="acao" value="senha" data-confirmar-acao="Trocar a senha direto no banco?"><i class="fa-solid fa-key"></i> Trocar a senha</button>
+          </div>
+        {% endif %}
+      {% else %}
+        <p class="ct-note">Sem banco do Keycloak em uso.</p>
+      {% endif %}
+    </form>
+
+    {# ---------------------------------------------------------------- 5. Dump #}
+    <form method="post" class="ct-card" id="dump">
+      {% csrf_token %}
+      <h2>5 · Gerar um dump</h2>
+      <p class="ct-note"><code>pg_dump -Fc --no-owner --no-privileges</code> do <code>{{ banco.nome }}</code>, com o Keycloak no ar. O arquivo baixa no navegador e serve para a seção 2 aqui ou em outro ambiente. <strong>Tem os hashes de senha e segredos dos clients:</strong> guarde com cuidado e não faça commit.</p>
+      {% if pode_editar and atual %}
+        <div class="ct-actions" style="margin-top:12px">
+          <button class="ct-btn ct-btn--primario" name="acao" value="dump"><i class="fa-solid fa-download"></i> Gerar e baixar</button>
+        </div>
+      {% endif %}
+    </form>
+  </div>
+  {% endif %}
+</div>
+{% endblock main %}
+
+{% block extra_js %}
+<script>
+  // Restauração demora: trava o botão para não enviar duas vezes.
+  document.querySelectorAll("form[data-restaurar]").forEach((f) => f.addEventListener("submit", () => {
+    const b = f.querySelector("button[name=acao]");
+    setTimeout(() => { b.disabled = true; b.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enviando e restaurando…'; }, 0);
+  }));
+  document.querySelectorAll("[data-confirmar-acao]").forEach((b) => b.addEventListener("click", (e) => {
+    if (!confirm(b.dataset.confirmarAcao)) e.preventDefault();
+  }));
+</script>
+{% endblock extra_js %}

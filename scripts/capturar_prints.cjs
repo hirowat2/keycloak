@@ -1,9 +1,14 @@
-// Prints da tela Metodologia (media/metodologia/*.png): percorre o uso real do assistente num realm de
+// Prints da Metodologia e do Manual (media/metodologia/*.png): percorre o uso real do assistente num realm de
 // demonstração (demo-sso), marca com números vermelhos os pontos citados no passo a passo e apaga o realm no fim.
+//
+// Sem dados reais nos prints (eles vão para o Git):
+// - realms que não são de demonstração (ex.: os de um dump de produção restaurado aqui) somem das telas antes do print;
+// - a tela "Banco do Keycloak" é fotografada contra um banco descartável (scripts/demo_banco.sh), conectado pela própria tela.
 //
 //   make prints        (com o compose no ar; usa KC_HOST, ASSISTENTE_HOST, KC_ADMIN_* e KC_REALM_ADMIN_* do .env)
 //
 // Precisa do playwright-core (o make prints baixa pelo npx) e do Chromium dele (npx playwright install chromium).
+const { execFileSync } = require("child_process");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
@@ -28,6 +33,10 @@ const APP = `https://${process.env.ASSISTENTE_HOST || "keycloak-assistente.docke
 const REALM = "demo-sso";
 const SAIDA = path.join(__dirname, "..", "media", "metodologia");
 const METADATA = "http://localhost:8080/realms/master/protocol/saml/descriptor"; // o master faz o papel do Entra
+const REALMS_VISIVEIS = new Set(["master", "automateflow", REALM]);
+const DEMO_DUMP = path.join(os.tmpdir(), "keycloak-demo.dump");
+const DEMO_SH = path.join(__dirname, "demo_banco.sh");
+let ocultos = [];
 
 async function admin(metodo, caminho, corpo) {
   const token = await fetch(`${KC}/realms/master/protocol/openid-connect/token`, {
@@ -70,9 +79,25 @@ async function marcar(page, marcas) {
   }, marcas);
 }
 
+// Tira das telas os realms reais: opções do seletor, linhas de tabela e itens que citam um deles
+async function ocultar(page) {
+  await page.evaluate((ocultos) => {
+    const nomes = new Set(ocultos);
+    const primeiraPalavra = (el) => (el.textContent || "").trim().split(/\s+/)[0];
+    document.querySelectorAll("option").forEach((o) => nomes.has(o.value) && o.remove());
+    document.querySelectorAll("tr, li").forEach((linha) => {
+      const citados = [...linha.querySelectorAll(".ct-codigo, code, input[name=realm]")];
+      if (citados.some((el) => nomes.has(el.value || primeiraPalavra(el)))) linha.remove();
+    });
+  }, ocultos);
+}
+
 async function print(page, arquivo, marcas = [], inteira = true) {
   // O django-debug-toolbar (DEBUG=true no compose) fica fora dos prints
   await page.addStyleTag({ content: "#djDebug { display: none !important; }" });
+  await ocultar(page);
+  // Página inteira começa do topo: senão o menu e a barra fixos aparecem no meio da imagem
+  if (inteira) await page.evaluate(() => window.scrollTo(0, 0));
   await marcar(page, marcas);
   await page.screenshot({ path: path.join(SAIDA, arquivo), fullPage: inteira });
   await marcar(page, []);
@@ -82,6 +107,8 @@ async function print(page, arquivo, marcas = [], inteira = true) {
 (async () => {
   fs.mkdirSync(SAIDA, { recursive: true });
   await admin("DELETE", `/${REALM}`);
+  ocultos = (await admin("GET", "")).map((r) => r.realm).filter((nome) => !REALMS_VISIVEIS.has(nome));
+  if (ocultos.length) console.log(`🙈 ${ocultos.length} realm(s) fora dos prints`);
   const navegador = await playwright().chromium.launch();
   const contexto = await navegador.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1360, height: 860 }, locale: "pt-BR" });
   const page = await contexto.newPage();
@@ -175,6 +202,36 @@ async function print(page, arquivo, marcas = [], inteira = true) {
   await print(page, "16-migracao-host.png", [["#plano", 1], ["#id_antigo", 2], ["button[value=aplicar]", 3]]);
   await page.locator("a[href='?incompletos=1']").scrollIntoViewIfNeeded();
   await print(page, "17-migracao-incompletos.png", [["a[href='?incompletos=1']", 1], [".ct-card:has(a[href='?incompletos=1']) table", 2]], false);
+  // Produção: Kubernetes + Akamai Managed PostgreSQL (host fictício)
+  await ir("/app/migracao/?vm=root%40vm-antiga&container=keycloak&destino=akamai&akamai=meu-cluster-default.g2a.akamaidb.net&namespace=default");
+  await print(page, "20-migracao-akamai.png", [["#id_destino", 1], ["#id_akamai", 2], ["#cmd-a", 3], ["#cmd-b", 4]]);
+
+  // Banco do Keycloak, contra o banco de demonstração
+  execFileSync(DEMO_SH, ["subir", DEMO_DUMP], { stdio: "inherit" });
+  await ir("/app/banco/");
+  await page.click("#outro-banco summary").catch(() => {});
+  await page.evaluate(() => (document.getElementById("outro-banco").open = true));
+  for (const [campo, valor] of [["host", "kc-demo-db"], ["porta", "5432"], ["usuario", "keycloak"], ["senha", "demo"],
+    ["nome", "keycloak"], ["administrativo", "postgres"]]) await page.fill(`#conexao_${campo}`, valor);
+  await page.selectOption("#conexao_sslmode", "disable");
+  await page.locator("#outro-banco").scrollIntoViewIfNeeded();
+  await print(page, "21-banco-conexao.png", [["#outro-banco .ct-cadastro-campos", 1], ["button[value=conectar]", 2]], false);
+  await Promise.all([page.waitForNavigation(), page.click("button[value=conectar]")]);
+  await print(page, "22-banco-estado.png", [["#conexao .ct-badge", 1], ["#conexao table", 2], ["form[data-restaurar]", 3]], false);
+  await page.setInputFiles("input[type=file]", DEMO_DUMP);
+  await Promise.all([page.waitForNavigation({ timeout: 120000 }), page.click("button[value=enviar]")]);
+  await page.fill("#id_confirmacao", "keycloak");
+  await page.locator("#conferencia").scrollIntoViewIfNeeded();
+  await print(page, "23-banco-conferir.png", [["#conferencia table", 1], ["#conferencia .ct-badge", 2], ["#id_confirmacao", 3], ["button[value=trocar]", 4]]);
+  await Promise.all([page.waitForNavigation(), page.click("button[value=trocar]")]);
+  await page.locator("#depois").scrollIntoViewIfNeeded();
+  await print(page, "24-banco-trocado.png", [["#conexao table", 1], ["#depois pre", 2]]);
+  await page.locator("#senha").scrollIntoViewIfNeeded();
+  await page.selectOption("#id_usuario", "admin");
+  await print(page, "25-banco-senha-dump.png", [["#id_usuario", 1], ["#id_senha", 2], ["button[value=senha]", 3], ["button[value=dump]", 4]], false);
+  await page.evaluate(() => (document.getElementById("outro-banco").open = true));
+  await Promise.all([page.waitForNavigation(), page.click("button[value=padrao]")]);
+  execFileSync(DEMO_SH, ["remover"]);
 
   // Histórico e painel final
   await ir("/app/historico/");
@@ -189,6 +246,7 @@ async function print(page, arquivo, marcas = [], inteira = true) {
   console.log(`✅ Prints em ${SAIDA}; realm ${REALM} apagado.`);
 })().catch(async (erro) => {
   console.error("❌", erro.message);
+  try { execFileSync(DEMO_SH, ["remover"]); } catch {}
   await admin("DELETE", `/${REALM}`).catch(() => {});
   process.exit(1);
 });

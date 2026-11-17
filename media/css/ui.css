@@ -406,3 +406,17 @@ html.dark {
 .mt-indice .ct-eyebrow:first-child { margin-top: 0; }
 .mt-etapa { display: flex; flex-direction: column; gap: 12px; }
 .mt-etapa .mt-tabela th { width: 190px; text-align: left; color: var(--ct-text-2); font-weight: 600; white-space: nowrap; }
+
+/* Manual de uso: ficha do caso, passos com o print ao lado (empilha no celular) */
+.mn-ficha { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px 16px; margin: 10px 0; font-size: 13px; }
+.mn-ficha div { background: var(--ct-muted); border-radius: 8px; padding: 8px 10px; }
+.mn-ficha strong { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--ct-text-2); margin-bottom: 2px; }
+.mn-lista { margin: 6px 0 0; padding-left: 18px; line-height: 1.6; }
+.mn-passos { list-style: none; counter-reset: passo; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.mn-passo { counter-increment: passo; display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 16px; align-items: start; }
+.mn-passo--sem-print { grid-template-columns: 1fr; }
+.mn-passo-texto { display: flex; gap: 10px; line-height: 1.55; }
+.mn-passo-texto::before { content: counter(passo); flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--ct-accent); color: #fff; font-weight: 700; font-size: 13px; display: grid; place-items: center; }
+.mn-passo .mt-figura img { max-height: 420px; }
+.mn-exemplo td:first-child { width: 140px; color: var(--ct-text-2); font-weight: 600; white-space: nowrap; }
+@media (max-width: 900px) { .mn-passo { grid-template-columns: 1fr; } }

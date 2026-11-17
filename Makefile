@@ -2,6 +2,9 @@ REGISTRY_OWNER:=estat
 PROJECT_NAME:=keycloak-assistente
 PROJECT_TAG:=latest
 SERVICE:=keycloak
+# Versão do Keycloak do compose (a mesma do .env). A porta de gerenciamento (9000) só existe do 25 em diante.
+KC_VERSION?=21.1
+KC_PORTA_GERENCIA=$(if $(filter 25% 26% 27% 28% 29% 3%,$(KC_VERSION)),--http-management-port=9001)
 
 ifneq (,$(wildcard ./.env))
 	include .env
@@ -10,7 +13,8 @@ endif
 
 .PHONY: all install migrate createsuperuser startapp runserver test gunicorn clean secret env network compose up down logs ps \
 	build interact shell der prints realm-export reset importar-realms restaurar-dump \
-	k8s-secrets k8s-render k8s-apply k8s-status k8s-logs k8s-delete k8s-importar-realms k8s-restaurar-dump
+	k8s-secrets k8s-render k8s-apply k8s-status k8s-logs k8s-delete k8s-importar-realms k8s-restaurar-dump \
+	akamai-testar akamai-conexoes akamai-psql akamai-restaurar-dump akamai-dump
 
 all: install compose
 
@@ -126,10 +130,10 @@ logs:
 ps:
 	@docker compose ps
 
-# Exporta o realm (com usuários) para ./export. A 9000 já é do servidor rodando.
+# Exporta o realm (com usuários) para ./export. No 25+, a 9000 já é do servidor rodando.
 realm-export:
 	@docker compose exec $(SERVICE) /opt/keycloak/bin/kc.sh export \
-		--http-management-port=9001 --dir /tmp/export --realm $(or $(KC_REALM),automateflow) --users realm_file
+		$(KC_PORTA_GERENCIA) --dir /tmp/export --realm $(or $(KC_REALM),automateflow) --users realm_file
 	@mkdir -p export
 	@docker compose cp $(SERVICE):/tmp/export/. export/
 	@echo "✅ Realm exportado em ./export"
@@ -157,7 +161,7 @@ $(EXPORT_DIR):
 importar-realms: $(EXPORT_DIR)
 	@docker compose exec $(SERVICE) rm -rf /tmp/kc-import
 	@docker compose cp $(EXPORT_DIR) $(SERVICE):/tmp/kc-import
-	@docker compose exec $(SERVICE) /opt/keycloak/bin/kc.sh import --dir /tmp/kc-import --override false --http-management-port=9001
+	@docker compose exec $(SERVICE) /opt/keycloak/bin/kc.sh import --dir /tmp/kc-import --override false $(KC_PORTA_GERENCIA)
 	@docker compose restart $(SERVICE)
 	@echo "✅ Realms importados. Confira no assistente (Painel) e ajuste o host em Migração da VM."
 
@@ -173,7 +177,7 @@ restaurar-dump:
 	@echo "✅ Dump restaurado. O admin do console agora é o da VM; acompanhe a migração do schema com make logs."
 
 # --- Kubernetes (kustomization.yaml + k8s/) -----------------------------------------------------
-K8S_NS:=keycloak
+K8S_NS?=keycloak
 K8S_POD=$$(kubectl -n $(K8S_NS) get pod -l application=keycloak -o name | head -1)
 
 k8s-secrets:
@@ -198,6 +202,9 @@ k8s-logs:
 k8s-delete:
 	@kubectl delete -k .
 
+# Versão do Keycloak do Deployment: a opção --http-management-port só existe do 25 em diante (produção roda 21.1)
+K8S_PORTA_GERENCIA=$$(kubectl -n $(K8S_NS) get deploy/keycloak -o jsonpath='{..image}' | grep -qE ':(2[5-9]|[3-9][0-9])' && echo --http-management-port=9001)
+
 # Caminho A no cluster: a imagem do Keycloak não tem tar, então os arquivos vão um a um por stdin
 k8s-importar-realms: $(EXPORT_DIR)
 	@echo "➡️  Contexto: $$(kubectl config current-context)"
@@ -207,7 +214,7 @@ k8s-importar-realms: $(EXPORT_DIR)
 			case "$$f" in */master-*) continue ;; esac; \
 			kubectl -n $(K8S_NS) exec -i $$POD -- sh -c "cat > /tmp/kc-import/$$(basename $$f)" < "$$f"; \
 		done && \
-		kubectl -n $(K8S_NS) exec $$POD -- /opt/keycloak/bin/kc.sh import --dir /tmp/kc-import --override false --http-management-port=9001
+		kubectl -n $(K8S_NS) exec $$POD -- /opt/keycloak/bin/kc.sh import --dir /tmp/kc-import --override false $(K8S_PORTA_GERENCIA)
 	@kubectl -n $(K8S_NS) rollout restart deploy/keycloak
 	@kubectl -n $(K8S_NS) rollout status deploy/keycloak --timeout=10m
 
@@ -222,3 +229,24 @@ k8s-restaurar-dump:
 	@kubectl -n $(K8S_NS) exec -i keycloak-db-0 -- sh -c 'pg_restore -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" --no-owner --no-acl' < "$(DUMP)"
 	@kubectl -n $(K8S_NS) scale deploy/keycloak --replicas=1
 	@kubectl -n $(K8S_NS) rollout status deploy/keycloak --timeout=10m
+
+# --- Kubernetes + Akamai Managed PostgreSQL (produção) ---------------------------------------------
+# O banco fica no cluster de banco da Akamai, fora do Kubernetes: tudo pelo scripts/akamai_db.sh.
+# AKAMAI_DB_HOST = host PRIMÁRIO (Connection Details). A senha é pedida no terminal (ou PGPASSWORD).
+AKAMAI_DB=AKAMAI_DB_HOST="$(AKAMAI_DB_HOST)" K8S_NS="$(K8S_NS)" scripts/akamai_db.sh
+
+akamai-testar:
+	@$(AKAMAI_DB) testar
+
+akamai-conexoes:
+	@$(AKAMAI_DB) conexoes
+
+akamai-psql:
+	@$(AKAMAI_DB) psql
+
+# Caminho B com o banco na Akamai: restaura em keycloak_new, confere, para o Keycloak e troca (o anterior vira cópia)
+akamai-restaurar-dump:
+	@$(AKAMAI_DB) restaurar "$(DUMP)"
+
+akamai-dump:
+	@$(AKAMAI_DB) dump

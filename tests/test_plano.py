@@ -76,3 +76,17 @@ def test_comandos_da_migracao_por_destino() -> None:
     assert compose["vm"] == ["scp scripts/exportar_vm.sh root@vm:", "ssh root@vm sh exportar_vm.sh kc"]
     assert compose["a"][-1] == "make importar-realms" and compose["b"][-1] == "make restaurar-dump"
     assert comandos("root@vm", "kc", "k8s")["b"][-1] == "make k8s-restaurar-dump"
+    akamai = comandos("root@vm", "kc", "akamai", "a1-prod.akamaidb.net", "default")
+    assert akamai["a"][-1] == "make k8s-importar-realms K8S_NS=default"
+    assert akamai["b"][1:] == [
+        "make akamai-testar AKAMAI_DB_HOST=a1-prod.akamaidb.net K8S_NS=default",
+        "make akamai-restaurar-dump AKAMAI_DB_HOST=a1-prod.akamaidb.net K8S_NS=default",
+    ]
+    assert "<host-primario>" in comandos("root@vm", "kc", "akamai")["b"][-1]
+
+
+def test_migracao_recusa_valores_que_quebram_o_shell() -> None:
+    from keycloak.screens.migracao.view import VmForm
+
+    form = VmForm({"vm": "root@vm", "container": "kc", "destino": "akamai", "akamai": "h; rm x", "namespace": "default"})
+    assert not form.is_valid() and "akamai" in form.errors

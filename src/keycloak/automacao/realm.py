@@ -23,7 +23,8 @@ CONFIG_REALM = {
     "defaultLocale": "pt-BR",
     "bruteForceProtected": True,
     "permanentLockout": False,
-    "maxTemporaryLockouts": 0,
+    # Sem "maxTemporaryLockouts": só existe do Keycloak 24 em diante (o 21 da produção recusa o realm
+    # inteiro com "unable to read contents from stream") e o padrão dele já é 0, que é o que o guia pede.
 }
 
 # Clients que o Keycloak cria em todo realm; não são apps.

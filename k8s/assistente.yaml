@@ -1,3 +1,31 @@
+# Conta do assistente: pode reiniciar o Deployment do Keycloak (tela "Restaurar dump", depois da troca do banco).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: assistente
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: assistente-reinicia-keycloak
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: ["keycloak"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: assistente-reinicia-keycloak
+subjects:
+  - kind: ServiceAccount
+    name: assistente
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: assistente-reinicia-keycloak
+---
 # Assistente (app Django) no mesmo namespace do Keycloak. Fala com a Admin API pelo Service
 # (http://keycloak:8080), com o admin do master de keycloak-secrets, e guarda o histórico num SQLite em PVC.
 apiVersion: v1
@@ -29,6 +57,7 @@ spec:
       labels:
         application: assistente
     spec:
+      serviceAccountName: assistente
       imagePullSecrets:
         - name: regcred
       containers:
@@ -71,6 +100,16 @@ spec:
               valueFrom: { secretKeyRef: { name: keycloak-secrets, key: KC_BOOTSTRAP_ADMIN_USERNAME } }
             - name: KEYCLOAK_ADMIN_PASSWORD
               valueFrom: { secretKeyRef: { name: keycloak-secrets, key: KC_BOOTSTRAP_ADMIN_PASSWORD } }
+            # Tela "Restaurar dump": o Postgres do Keycloak. No Akamai Managed PostgreSQL use o host/porta de
+            # Connection Details, user akmadmin, KEYCLOAK_DB_ADMIN_DB=defaultdb e KEYCLOAK_DB_SSLMODE=require.
+            - name: KEYCLOAK_DB_HOST
+              value: keycloak-db
+            - name: KEYCLOAK_DB_NAME
+              value: keycloak
+            - name: KEYCLOAK_DB_USER
+              valueFrom: { secretKeyRef: { name: keycloak-secrets, key: KC_DB_USERNAME } }
+            - name: KEYCLOAK_DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: keycloak-secrets, key: KC_DB_PASSWORD } }
           startupProbe:                   # a inicialização roda collectstatic, migrate e preparar_login
             httpGet:
               path: /health/

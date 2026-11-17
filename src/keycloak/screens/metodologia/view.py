@@ -133,26 +133,71 @@ ETAPAS = [
         ],
     },
     {
-        "id": "migracao", "titulo": "Migração da VM", "tela": "/app/migracao/", "guia": "README_migracao_vm.md",
-        "resumo": "Traz os realms de um Keycloak em container numa VM. O script da VM e os alvos do make fazem a cópia; a tela termina o serviço.",
-        "muda": "Na troca de host: Frontend URL do realm (apagada) e redirect URIs, post logout e web origins dos clients.",
-        "codigo": "scripts/exportar_vm.sh · Makefile (importar-realms, restaurar-dump, k8s-*) · automacao/manutencao.py",
+        "id": "migracao", "titulo": "Migração da VM", "tela": "/app/migracao/", "guia": "README_migracao_vm.md (B.4: produção na Akamai)",
+        "resumo": "Traz os realms de um Keycloak em container numa VM. O script da VM gera o arquivo; o destino pode ser o compose, "
+                  "o Kubernetes com Postgres no cluster ou a produção: Kubernetes com o banco no Akamai Managed PostgreSQL. "
+                  "A tela monta os comandos de cada destino e termina o serviço (host novo, usuários incompletos).",
+        "muda": "Na troca de host: Frontend URL do realm (apagada) e redirect URIs, post logout e web origins dos clients. "
+                "Os comandos da Akamai mexem no banco: restauram em keycloak_new e trocam, guardando o anterior.",
+        "codigo": "scripts/exportar_vm.sh · scripts/akamai_db.sh · Makefile (importar-realms, restaurar-dump, k8s-*, akamai-*) · automacao/manutencao.py",
         "diagrama": """flowchart TB
     S["scripts/exportar_vm.sh na VM"] --> I{"docker inspect:<br/>KC_DB?"}
     I -- postgres --> B["pg_dump, sem parar nada<br/>keycloak.dump"]
     I -- "H2 ou outro" --> A["kc.sh export<br/>H2: para ~1 min<br/>kc-export.tgz"]
-    B --> RB["make restaurar-dump<br/>apaga o banco daqui"]
-    A --> RA["make importar-realms<br/>mantém o master daqui"]
-    RA & RB --> T["Tela Migração da VM<br/>host novo · usuários incompletos"]
-    T --> D["Validar e desligar a VM"]""",
+    B --> D{"Destino"}
+    D -- compose --> RB["make restaurar-dump<br/>apaga o banco daqui"]
+    D -- "k8s + keycloak-db" --> RK["make k8s-restaurar-dump"]
+    D -- "k8s + Akamai" --> RA2["make akamai-restaurar-dump<br/>keycloak_new → confere → troca<br/>(guarda o anterior)"]
+    A --> RA["make importar-realms / k8s-importar-realms<br/>mantém o master daqui"]
+    RA & RB & RK & RA2 --> T["Tela Migração da VM<br/>host novo · usuários incompletos"]
+    T --> V["Validar e desligar a VM"]""",
         "passos": [
             ("15-migracao-comandos.png", "Comandos prontos",
              "(1) Acesso à VM, container e destino. (2) Na VM, o script descobre H2 ou Postgres e gera o arquivo. "
              "(3) Caminho A (kc-export.tgz) e (4) caminho B (keycloak.dump)."),
+            ("20-migracao-akamai.png", "Produção: Kubernetes + Akamai",
+             "(1) Destino Kubernetes + Akamai Managed PostgreSQL. (2) Host primário do cluster de banco (o read-only recusa). "
+             "(3) O caminho A importa pelo pod, no namespace informado. (4) O caminho B testa a conexão e restaura com o "
+             "scripts/akamai_db.sh, que para o deploy, troca os bancos e sobe de novo. No cluster, a tela já vem preenchida."),
             ("16-migracao-host.png", "Host novo",
              "(1) Simulação da troca do host antigo nas URLs dos clients e da limpeza da Frontend URL. (2) Host antigo. (3) Aplicar, um realm por vez."),
             ("17-migracao-incompletos.png", "Usuários incompletos",
              "(1) Procura no realm ativo. (2) Usuários sem e-mail, nome ou sobrenome, que veriam a tela de completar o cadastro."),
+        ],
+    },
+    {
+        "id": "banco", "titulo": "Banco do Keycloak", "tela": "/app/banco/", "guia": "k8s/sql_db.md",
+        "resumo": "O k8s/sql_db.md inteiro pelo navegador, falando direto com o PostgreSQL (funciona com o Keycloak fora do ar): "
+                  "conexão configurável, restaurar dump sem apagar nada antes da hora, quem está conectado, senha de admin "
+                  "e gerar dump.",
+        "muda": "Bancos do servidor PostgreSQL: cria e apaga keycloak_new, renomeia o banco em uso para keycloak_antes_<data> "
+                "(sem conexões) e o temporário para o nome do banco; grava hash de senha na tabela credential. "
+                "No Kubernetes, reinicia o deploy do Keycloak (Role assistente-reinicia-keycloak).",
+        "codigo": "automacao/dump.py → Banco, listar(), restaurar_temporario(), conferir(), trocar(), trocar_senha(), gerar_dump(), reiniciar_keycloak() · screens/banco/view.py",
+        "diagrama": """flowchart TB
+    C["1 · Conexão<br/>KEYCLOAK_DB_* ou a da tela<br/>(senha cifrada na sessão)"] --> U["2.1 · Upload<br/>pg_restore --list"]
+    U --> N[("keycloak_new<br/>pg_restore --no-owner")]
+    N --> K{"2.2 · Conferir"}
+    K -- "sem migration_model,<br/>sem master ou versão mais nova" --> X["bloqueia a troca"]
+    K -- ok --> T["2.3 · Trocar<br/>ALLOW_CONNECTIONS false<br/>derruba conexões · renomeia"]
+    T --> B[("keycloak_antes_AAAAMMDD_HHMMSS")]
+    T --> R["reinicia o Keycloak<br/>(k8s API) ou mostra o comando"]
+    C --> S3["3 · pg_stat_activity"]
+    C --> S4["4 · senha pbkdf2-sha256<br/>em credential"]
+    C --> S5["5 · pg_dump -Fc<br/>download"]""",
+        "passos": [
+            ("21-banco-conexao.png", "Conexão",
+             "(1) Host, porta, usuário, senha, banco do Keycloak, banco administrativo e SSL. Sem preencher, vale a do ambiente "
+             "(KEYCLOAK_DB_*). (2) Testar e usar: só guarda se conectar, e vale só para a sua sessão."),
+            ("22-banco-estado.png", "Estado do servidor",
+             "(1) Conectado e a versão do PostgreSQL. (2) Os bancos do servidor: em uso, temporário e cópias. (3) Upload do dump."),
+            ("23-banco-conferir.png", "Conferir e trocar",
+             "(1) migration_model, realms, usuários e admins do master do dump, restaurado em keycloak_new. (2) Pronto para "
+             "trocar, ou os bloqueios. (3) Confirmação com o nome do banco. (4) Trocar."),
+            ("24-banco-trocado.png", "Depois da troca",
+             "(1) O dump em uso e o banco anterior guardado como cópia, sem conexões. (2) O SQL para voltar à cópia ou apagá-la."),
+            ("25-banco-senha-dump.png", "Senha de admin e dump",
+             "(1) Admin do master. (2) Senha nova, gravada direto no banco. (3) Trocar a senha. (4) Gerar e baixar um dump."),
         ],
     },
     {
@@ -184,6 +229,7 @@ CODIGO = [
         ("saml.py", "Etapas 3 e 4: import do metadata, provedor SAML, mappers de atributo, username, login direto e mappers de grupo."),
         ("conferir.py", "Etapa 5: checklist contra o guia, consulta de usuário, .env dos apps e o JSON versionável."),
         ("manutencao.py", "Pós-migração: troca de host nos clients, Frontend URL e usuários incompletos."),
+        ("dump.py", "Banco do Keycloak direto no PostgreSQL: conexão (ambiente ou sessão), pg_restore num temporário, conferência, troca com cópia, senha pbkdf2, pg_dump e reinício do deploy pela API do Kubernetes."),
         ("web.py", "Ponte com as telas: realm ativo, permissões, decorador com_realm e executar(), que roda a etapa e grava o Histórico."),
     ]),
     ("Login e projeto", [
@@ -192,10 +238,13 @@ CODIGO = [
         ("src/keycloak/models.py", "Aplicacao: o registro do Histórico (etapa, realm, usuário, simulação ou não, plano e erro)."),
     ]),
     ("Infraestrutura", [
-        ("docker-compose.yml", "Keycloak + Postgres, assistente + Postgres e o Traefik (só se ninguém publicar a 443)."),
-        ("kustomization.yaml + k8s/", "O mesmo no Kubernetes: Keycloak, StatefulSet do banco, assistente com SQLite em PVC e os Ingress."),
+        ("docker-compose.yml", "Keycloak 21.1 (KC_VERSION) + Postgres configurável (KC_DB_*), assistente + Postgres e o Traefik (só se ninguém publicar a 443)."),
+        ("kustomization.yaml + k8s/", "O mesmo no Kubernetes: Keycloak, StatefulSet do banco, assistente com SQLite em PVC, os Ingress e a Role que deixa o assistente reiniciar o Keycloak."),
+        ("k8s/keycloak-deploy.yaml", "Produção (LKE): Keycloak 21.1 com o banco no Akamai Managed PostgreSQL."),
         ("scripts/exportar_vm.sh", "Roda na VM antiga: docker inspect, escolhe o caminho A ou B e gera kc-export.tgz ou keycloak.dump."),
-        ("Makefile", "compose, test, importar-realms, restaurar-dump, k8s-* e prints (estes prints)."),
+        ("scripts/akamai_db.sh", "Produção: o k8s/sql_db.md contra o Akamai Managed PostgreSQL (testar, restaurar com troca e cópia, conexões, psql, dump)."),
+        ("scripts/demo_banco.sh", "Banco descartável de demonstração para os prints da tela Banco do Keycloak (sem dados reais)."),
+        ("Makefile", "compose, test, importar-realms, restaurar-dump, k8s-*, akamai-* e prints (estes prints)."),
         ("tests/", "Unitários e a integração que percorre as telas contra um Keycloak de verdade (KEYCLOAK_TESTE_URL)."),
     ]),
 ]

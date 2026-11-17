@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% load custom_filters %}
+{% block title %}Manual de uso | Assistente Keycloak{% endblock %}
+
+{% block main %}
+<div class="ct-page">
+  <header class="ct-header">
+    <div>
+      <p class="ct-eyebrow">Ajuda</p>
+      <h1 class="ct-title">Manual de uso</h1>
+      <p class="ct-subtitle">O que fazer em cada situação, passo a passo, com as telas e exemplos. Para entender como cada tela funciona por dentro, veja a <a href="/app/metodologia/">Metodologia</a>.</p>
+    </div>
+  </header>
+
+  <div class="mt-layout">
+    <nav class="mt-indice" aria-label="Nesta página">
+      <p class="ct-eyebrow">Começando</p>
+      <a href="#comecar">Antes de tudo</a>
+      <a href="#mapa">Qual caso eu sigo?</a>
+      <p class="ct-eyebrow">Casos de uso</p>
+      {% for c in casos %}<a href="#{{ c.id }}">{{ forloop.counter }} · {{ c.titulo }}</a>{% endfor %}
+      <p class="ct-eyebrow">Referência</p>
+      <a href="#telas">As telas</a>
+      <a href="#problemas">Problemas comuns</a>
+      <a href="#glossario">Glossário</a>
+    </nav>
+
+    <div class="mt-conteudo">
+      <section class="ct-card mt-secao" id="comecar">
+        <h2>Antes de tudo</h2>
+        <p>O assistente aplica no Keycloak o que está nos guias README_sso.md e README_migracao_vm.md, por formulários. Três regras valem para todas as telas:</p>
+        <ol class="mn-lista">
+          <li><b>O realm do menu lateral é onde tudo acontece.</b> Troque-o antes de mexer em outro cliente; a tela recusa uma ação se o realm mudou em outra aba.</li>
+          <li><b>Simular nunca grava.</b> Mostra o plano: o que seria criado, atualizado ou removido. <b>Aplicar</b> grava e pede confirmação.</li>
+          <li><b>Aplicar de novo é seguro.</b> O que já está certo aparece como "Sem mudança"; se algo falhou no meio, continua de onde parou.</li>
+        </ol>
+        <table class="ct-table ct-table--compacta mt-tabela">
+          <thead><tr><th>Perfil</th><th>O que pode</th></tr></thead>
+          <tbody>{% for nome, pode in perfis %}<tr><td><b>{{ nome }}</b></td><td>{{ pode }}</td></tr>{% endfor %}</tbody>
+        </table>
+        <div class="mn-passo" style="margin-top:14px">
+          <p class="ct-note" style="margin:0">Para entrar, use o mesmo login dos apps (realm do assistente). O painel mostra o Keycloak conectado, a versão, os realms e o andamento das etapas do realm ativo: (1) seletor do realm, (2) menu das telas, (3) novo realm.</p>
+          <a class="mt-figura" href="{% media_url 'metodologia/03-painel.png' %}" target="_blank" rel="noopener"><img src="{% media_url 'metodologia/03-painel.png' %}" alt="Painel do assistente" loading="lazy"></a>
+        </div>
+      </section>
+
+      <section class="ct-card mt-secao" id="mapa">
+        <h2>Qual caso eu sigo?</h2>
+        <pre class="mermaid">
+flowchart TB
+    Q{"O que você precisa?"}
+    Q -- "cliente novo" --> C1["1 · Configurar um cliente<br/>com o SSO dele"]
+    Q -- "app novo num cliente" --> C2["2 · Adicionar um app"]
+    Q -- "pessoa entrou/saiu" --> C3["3 · Dar ou tirar acesso"]
+    Q -- "alguém não entra" --> C4["4 · Descobrir por quê"]
+    Q -- "sair da VM antiga" --> C5["5 · Migrar para a produção"]
+    Q -- "voltar um backup" --> C6["6 · Restaurar um dump"]
+    Q -- "perdi a senha do admin" --> C7["7 · Recuperar o admin"]
+    Q -- "vou mexer em muita coisa" --> C8["8 · Backup antes"]
+    C8 -.-> C6</pre>
+      </section>
+
+      {% for c in casos %}
+      <section class="ct-card mt-secao" id="{{ c.id }}">
+        <p class="ct-eyebrow">Caso {{ forloop.counter }}</p>
+        <h2>{{ c.titulo }}</h2>
+        <p>{{ c.quando }}</p>
+        <div class="mn-ficha">
+          <div><strong>Quem</strong>{{ c.quem }}</div>
+          <div><strong>Tempo</strong>{{ c.tempo }}</div>
+        </div>
+
+        <h3 class="mt-subtitulo">Antes de começar</h3>
+        <ul class="mn-lista">{% for item in c.pre %}<li>{{ item }}</li>{% endfor %}</ul>
+
+        <h3 class="mt-subtitulo">Fluxo</h3>
+        <pre class="mermaid">{{ c.diagrama|safe }}</pre>
+
+        <h3 class="mt-subtitulo">Passo a passo</h3>
+        <ol class="mn-passos">
+          {% for p in c.passos %}
+            <li class="mn-passo{% if not p.imagem %} mn-passo--sem-print{% endif %}">
+              <div class="mn-passo-texto"><div>{{ p.texto|safe }}{% if p.tela %} <a class="ct-btn ct-btn--pequeno" href="{{ p.tela }}">Abrir a tela</a>{% endif %}</div></div>
+              {% if p.imagem %}<a class="mt-figura" href="{% media_url p.imagem %}" target="_blank" rel="noopener" title="Abrir em tamanho real"><img src="{% media_url p.imagem %}" alt="{{ c.titulo }}: passo {{ forloop.counter }}" loading="lazy"></a>{% endif %}
+            </li>
+          {% endfor %}
+        </ol>
+
+        <h3 class="mt-subtitulo">Exemplo</h3>
+        <table class="ct-table ct-table--compacta mt-tabela mn-exemplo">
+          <tbody>{% for rotulo, valor in c.exemplo %}<tr><td>{{ rotulo }}</td><td class="ct-codigo">{{ valor }}</td></tr>{% endfor %}</tbody>
+        </table>
+
+        <div class="ct-info" style="margin-top:12px"><b>Resultado esperado:</b> {{ c.resultado }}</div>
+
+        {% if c.erros %}
+          <h3 class="mt-subtitulo">Se der errado</h3>
+          <table class="ct-table ct-table--compacta mt-tabela">
+            <thead><tr><th>Sintoma</th><th>O que fazer</th></tr></thead>
+            <tbody>{% for sintoma, acao in c.erros %}<tr><td>{{ sintoma }}</td><td>{{ acao }}</td></tr>{% endfor %}</tbody>
+          </table>
+        {% endif %}
+      </section>
+      {% endfor %}
+
+      <section class="ct-card mt-secao" id="telas">
+        <h2>As telas</h2>
+        <table class="ct-table ct-table--compacta mt-tabela">
+          <thead><tr><th>Tela</th><th>Para quê</th><th>Quem muda</th></tr></thead>
+          <tbody>{% for url, nome, para, quem in telas %}<tr><td class="ct-nowrap"><a href="{{ url }}">{{ nome }}</a></td><td>{{ para }}</td><td class="ct-nowrap">{{ quem }}</td></tr>{% endfor %}</tbody>
+        </table>
+      </section>
+
+      <section class="ct-card mt-secao" id="problemas">
+        <h2>Problemas comuns</h2>
+        <table class="ct-table ct-table--compacta mt-tabela">
+          <thead><tr><th>Sintoma</th><th>Causa provável</th><th>O que fazer</th></tr></thead>
+          <tbody>{% for sintoma, causa, acao in problemas %}<tr><td>{{ sintoma }}</td><td>{{ causa }}</td><td>{{ acao }}</td></tr>{% endfor %}</tbody>
+        </table>
+      </section>
+
+      <section class="ct-card mt-secao" id="glossario">
+        <h2>Glossário</h2>
+        <table class="ct-table ct-table--compacta mt-tabela">
+          <tbody>{% for termo, significado in glossario %}<tr><td class="ct-nowrap"><b>{{ termo }}</b></td><td>{{ significado }}</td></tr>{% endfor %}</tbody>
+        </table>
+      </section>
+    </div>
+  </div>
+</div>
+{% endblock main %}
+
+{% block extra_js %}
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: document.documentElement.classList.contains("dark") ? "dark" : "neutral",
+    flowchart: { htmlLabels: true, curve: "basis" },
+    securityLevel: "strict",
+  });
+</script>
+{% endblock extra_js %}

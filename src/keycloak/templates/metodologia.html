@@ -8,7 +8,7 @@
     <div>
       <p class="ct-eyebrow">Ajuda</p>
       <h1 class="ct-title">Metodologia</h1>
-      <p class="ct-subtitle">Como o assistente transforma o README_sso.md e o README_migracao_vm.md em formulários: as peças, os fluxos, o código e o passo a passo com as telas.</p>
+      <p class="ct-subtitle">Como o assistente transforma o README_sso.md, o README_migracao_vm.md e o k8s/sql_db.md em formulários: as peças, os fluxos, o código e o passo a passo com as telas. Para o que fazer em cada situação, veja o <a href="/app/manual/">Manual de uso</a>.</p>
     </div>
   </header>
 
@@ -46,7 +46,11 @@ flowchart LR
     A --- H
     APPS -- "OIDC + PKCE" --> K
     K -- "SAML 2.0" --> SSO
-    U -. "login OIDC<br/>(keycloak.js)" .-> K</pre>
+    U -. "login OIDC<br/>(keycloak.js)" .-> K
+    PG[(PostgreSQL do Keycloak<br/>compose, cluster ou Akamai)]
+    K --- PG
+    A -- "Banco do Keycloak<br/>psycopg2 · pg_restore · pg_dump" --> PG</pre>
+        <p>Uma exceção: a tela <strong>Banco do Keycloak</strong> fala direto com o PostgreSQL do Keycloak (restaurar, conferir, trocar senha, gerar dump), para funcionar mesmo com o Keycloak fora do ar.</p>
         <p class="ct-note">O que acontece <strong>dentro do SSO</strong> (aplicação SAML, grupos e claims no portal da Microsoft, do Google ou do Okta) não tem API comum: a etapa 3 entrega as URLs e o roteiro para o time do SSO.</p>
       </section>
 
@@ -212,6 +216,8 @@ sequenceDiagram
             <tr><td class="ct-codigo">make test</td><td>Testes; com <code>KEYCLOAK_TESTE_URL</code>, também a integração contra o Keycloak</td></tr>
             <tr><td class="ct-codigo">make prints</td><td>Refaz os prints desta página num realm de demonstração</td></tr>
             <tr><td class="ct-codigo">make importar-realms · make restaurar-dump</td><td>Destino da migração (compose); <code>k8s-</code> no cluster</td></tr>
+            <tr><td class="ct-codigo">make akamai-testar · akamai-restaurar-dump</td><td>Produção: banco no Akamai Managed PostgreSQL (<code>AKAMAI_DB_HOST=</code> host primário, <code>K8S_NS=</code>)</td></tr>
+            <tr><td class="ct-codigo">make akamai-conexoes · akamai-psql · akamai-dump</td><td>Quem está conectado, console e backup do banco da produção</td></tr>
             <tr><td class="ct-codigo">make realm-export</td><td>Export completo do realm em <code>./export/</code></td></tr>
             <tr><td class="ct-codigo">make k8s-apply</td><td>Keycloak e assistente no Kubernetes</td></tr>
           </tbody>

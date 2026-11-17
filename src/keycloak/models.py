@@ -5,13 +5,14 @@ from django.db import models
 class Aplicacao(models.Model):
     """Cada vez que uma etapa foi simulada ou aplicada no Keycloak, com o plano resultante."""
 
-    REALM, GRUPOS, SSO, MAPEAMENTO, HOST = "realm", "grupos", "sso", "mapeamento", "host"
+    REALM, GRUPOS, SSO, MAPEAMENTO, HOST, DUMP = "realm", "grupos", "sso", "mapeamento", "host", "dump"
     ETAPAS = [
         (REALM, "1 · Realm e apps"),
         (GRUPOS, "2 · Grupos e roles"),
         (SSO, "3 · SSO SAML"),
         (MAPEAMENTO, "4 · Grupos do SSO"),
         (HOST, "Migração · host novo"),
+        (DUMP, "Banco do Keycloak"),
     ]
 
     criado_em = models.DateTimeField("Quando", auto_now_add=True)
